@@ -14,11 +14,12 @@ def init_state():
         'otwory': [], 'dlugosc_desek': 600,
         'osb_zew': 12, 'osb_wew': 0, 'gk_wew': 12.5,
         'ocieplenie_dach': 15, 'podloga_podwojna': False,
+        'active_tab': 'Geometria'  # domyślnie wybrana zakładka
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
-    # Każdy otwór dostaje unikalny identyfikator
+    # uzupełnij identyfikatory w otworach
     for o in st.session_state.otwory:
         if 'id' not in o:
             o['id'] = str(uuid.uuid4())
@@ -27,75 +28,57 @@ init_state()
 
 # ---------- POPRAWIONE FUNKCJE OBLICZENIOWE ----------
 def pow_podlogi():
-    """Powierzchnia podłogi w m² (wymiary w cm)"""
     return st.session_state.szer * st.session_state.dlug / 10_000
 
 def kubatura():
-    """Kubatura w m³"""
     return pow_podlogi() * st.session_state.wys / 100
 
 def pow_scian_brutto():
-    """Powierzchnia brutto ścian w m² (bez odliczania otworów)"""
-    obwod = 2 * (st.session_state.szer + st.session_state.dlug)  # cm
+    obwod = 2 * (st.session_state.szer + st.session_state.dlug)
     pole_cm2 = obwod * st.session_state.wys
-    return pole_cm2 / 10_000  # 1 m² = 10 000 cm²
+    return pole_cm2 / 10_000
 
 def pow_otworow():
-    """Łączna powierzchnia wszystkich otworów w m²"""
-    suma_cm2 = 0
-    for o in st.session_state.otwory:
-        suma_cm2 += o.get('szer', 0) * o.get('wys', 0)
+    suma_cm2 = sum(o.get('szer', 0) * o.get('wys', 0) for o in st.session_state.otwory)
     return suma_cm2 / 10_000
 
 def pow_scian_netto():
-    """Powierzchnia netto ścian (brutto minus otwory)"""
     return max(0.0, pow_scian_brutto() - pow_otworow())
 
 def obwod_scian():
-    """Obwód ścian w metrach"""
     return 2 * (st.session_state.szer + st.session_state.dlug) / 100
 
 def liczba_slupkow():
-    obwod = obwod_scian()  # m
-    rozstaw = st.session_state.rozstaw / 100  # zamiana cm na m
-    n = math.ceil(obwod / rozstaw) + 4  # narożniki
+    obwod = obwod_scian()
+    rozstaw_m = st.session_state.rozstaw / 100
+    n = math.ceil(obwod / rozstaw_m) + 4
     for _ in st.session_state.otwory:
-        n += 2  # dodatkowe słupki przy otworach
+        n += 2
     return max(n, 4)
 
 def dlugosc_listwy():
-    """Całkowita długość listew (słupków) w metrach"""
     return liczba_slupkow() * st.session_state.wys / 100
 
 def ile_desek(dlugosc_calkowita_m, dlugosc_handlowa_cm):
-    """Ile desek o podanej długości handlowej (cm) potrzeba"""
     dl_handl_m = dlugosc_handlowa_cm / 100
     return math.ceil(dlugosc_calkowita_m / dl_handl_m)
 
 def pow_dachu():
-    """Powierzchnia połaci dachowej w m² (uwzględnia okapy i kąt)"""
     szer = st.session_state.szer + st.session_state.okap_lewo + st.session_state.okap_prawo
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     rzut_m2 = (szer * dlug) / 10_000
     return rzut_m2 / math.cos(math.radians(st.session_state.kat))
 
-# ---------- INTERFEJS: ZAKŁADKI ----------
+# ---------- MENU JAKO POZIOMY RADIO ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
-st.caption("Wszystkie dane są współdzielone między modułami.")
+st.caption("Wszystkie dane są współdzielone. Wybierz moduł poniżej.")
 
-tabs = st.tabs([
-    "📐 Geometria",
-    "🏗️ Konstrukcja ścian",
-    "🧱 Poszycia i izolacje",
-    "🔺 Dach",
-    "🏠 Podłoga",
-    "🔩 Akcesoria",
-    "📊 Kosztorys"
-])
+zakladki = ["Geometria", "Konstrukcja ścian", "Poszycia i izolacje", "Dach", "Podłoga", "Akcesoria", "Kosztorys"]
+wybor = st.radio("", zakladki, key='active_tab', horizontal=True)
 
-# ---------- ZAWARTOŚĆ ZAKŁADEK ----------
-with tabs[0]:
-    st.header("Geometria budynku – wymiary główne")
+# ---------- ZAWARTOŚĆ MODUŁÓW ----------
+if wybor == "Geometria":
+    st.header("📐 Geometria budynku – wymiary główne")
     c1, c2 = st.columns(2)
     with c1:
         st.number_input("Wysokość (cm)", 200, 600, key='wys')
@@ -106,11 +89,10 @@ with tabs[0]:
         st.metric("Powierzchnia podłogi", f"{pow_podlogi():.2f} m²")
         st.metric("Kubatura", f"{kubatura():.2f} m³")
         st.metric("Powierzchnia ścian (brutto)", f"{pow_scian_brutto():.2f} m²")
-    st.info("Otwory okienne i drzwiowe definiuje się w zakładce **Konstrukcja ścian**.")
+    st.info("Otwory okienne i drzwiowe definiuje się w module **Konstrukcja ścian**.")
 
-with tabs[1]:
-    st.header("Konstrukcja ścian")
-    st.subheader("Materiał i rozstaw")
+elif wybor == "Konstrukcja ścian":
+    st.header("🏗️ Konstrukcja ścian")
     col1, col2 = st.columns(2)
     with col1:
         st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"], key='slupki')
@@ -153,8 +135,8 @@ with tabs[1]:
     c3.metric(f"Desek {st.session_state.dlugosc_desek} cm", sztuk)
     st.metric("Procent resztek", f"{resztki:.1f} %")
 
-with tabs[2]:
-    st.header("Poszycia i izolacje")
+elif wybor == "Poszycia i izolacje":
+    st.header("🧱 Poszycia i izolacje")
     st.subheader("Poszycie zewnętrzne")
     st.number_input("Grubość OSB-3 zewn. (mm)", 8, 25, key='osb_zew')
     wiatro_opcje = {"Membrana Standard 120g": 120, "Membrana Premium 160g": 160, "Folia wiatrochronna 100g": 100}
@@ -173,11 +155,11 @@ with tabs[2]:
     st.subheader("Izolacja termiczna")
     st.number_input("Grubość ocieplenia dachu (cm)", 5, 30, key='ocieplenie_dach')
 
-with tabs[3]:
-    st.header("Dach")
-    subtab1, subtab2 = st.tabs(["Konstrukcja dachu", "Wykończenie dachu"])
-
-    with subtab1:
+elif wybor == "Dach":
+    st.header("🔺 Dach")
+    # Użyjemy dwóch podstron na stałe, ale bez zagnieżdżonych tabs (mogą resetować) – proste podradio
+    dach_opcje = st.radio("Wybierz", ["Konstrukcja", "Wykończenie"], key='dach_podstrona', horizontal=True)
+    if dach_opcje == "Konstrukcja":
         st.subheader("Parametry konstrukcji")
         col1, col2 = st.columns(2)
         with col1:
@@ -190,60 +172,56 @@ with tabs[3]:
             st.slider("Lewo", 0, 100, key='okap_lewo')
             st.slider("Prawo", 0, 100, key='okap_prawo')
         st.metric("Całkowita powierzchnia dachu", f"{pow_dachu():.2f} m²")
-
-    with subtab2:
+    else:
         st.subheader("Wykończenie pokrycia dachowego")
         st.selectbox("Rodzaj pokrycia", ["Papa", "Blachodachówka", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
         st.write(f"Powierzchnia do pokrycia: **{pow_dach:.2f} m²**")
 
         if st.session_state.pokrycie == "Papa":
-            # przykładowe zużycie: 1 rolka = 2 m²
             sztuk = math.ceil(pow_dach / 2)
-            st.write("**Materiały:** Papa termozgrzewalna, podkład, gaz, itp.")
-            st.write(f"- Papa w rolkach: {sztuk} szt. (orientacyjnie)")
+            st.write("**Materiały:** Papa termozgrzewalna, podkład, gaz...")
+            st.write(f"- Papa w rolkach: {sztuk} szt.")
         elif st.session_state.pokrycie == "Blachodachówka":
-            # przykładowe zużycie: 1 arkusz = 0.8 m²
             sztuk = math.ceil(pow_dach / 0.8)
-            st.write("**Materiały:** Blachodachówka, wkręty, gąsiory, itp.")
+            st.write("**Materiały:** Blachodachówka, wkręty, gąsiory...")
             st.write(f"- Arkusze: {sztuk} szt.")
         elif st.session_state.pokrycie == "EPDM":
-            st.write("**Materiały:** Membrana EPDM, klej, taśmy, itp.")
-            st.write(f"- Membrana: {pow_dach:.1f} m² (kupowana na wymiar)")
+            st.write("**Materiały:** Membrana EPDM, klej, taśmy...")
+            st.write(f"- Membrana: {pow_dach:.1f} m²")
 
         ceny = {"Papa": 25.0, "Blachodachówka": 45.0, "EPDM": 70.0}
         cena_m2 = ceny[st.session_state.pokrycie]
         st.write(f"**Cena za m²:** {cena_m2:.2f} zł")
         st.write(f"**Szacunkowy koszt pokrycia:** {pow_dach * cena_m2:.2f} zł")
 
-with tabs[4]:
-    st.header("Podłoga")
+elif wybor == "Podłoga":
+    st.header("🏠 Podłoga")
     st.checkbox("Podwójna podłoga (całoroczna)", key='podloga_podwojna')
     pow_podl = pow_podlogi()
     st.write(f"Powierzchnia podłogi: {pow_podl:.2f} m²")
     if st.session_state.podloga_podwojna:
-        st.write("Dodatkowa warstwa podłogi (np. 95 mm) zostanie uwzględniona w kosztorysie.")
+        st.write("Dodatkowa warstwa podłogi zostanie uwzględniona w kosztorysie.")
 
-with tabs[5]:
-    st.header("Akcesoria i łączniki")
+elif wybor == "Akcesoria":
+    st.header("🔩 Akcesoria i łączniki")
     pow_osb = pow_scian_netto()
-    wkrety_na_m2 = 25
-    wkrety = math.ceil(pow_osb * wkrety_na_m2 * 1.15)
+    wkrety = math.ceil(pow_osb * 25 * 1.15)
     opakowania = math.ceil(wkrety / 200)
     st.subheader("Wkręty do OSB (Klimas)")
     st.write(f"- Ilość: {wkrety} szt. (z zapasem 15%)")
     st.write(f"- Opakowania (po 200 szt.): {opakowania}")
 
     st.subheader("Taśmy")
-    mb_tasm = obwod_scian() * 2  # przybliżenie
+    mb_tasm = obwod_scian() * 2
     st.write(f"- Taśma do folii: {mb_tasm:.1f} mb")
 
     st.subheader("Łączniki ciesielskie")
     katowniki = liczba_slupkow() * 2
     st.write(f"- Kątowniki: {katowniki} szt.")
 
-with tabs[6]:
-    st.header("Kosztorys zbiorczy")
+elif wybor == "Kosztorys":
+    st.header("📊 Kosztorys zbiorczy")
     CENY = {
         'Drewno 95x45': 12.0, 'Drewno 145x45': 18.0, 'Drewno 195x45': 24.0,
         'OSB-3': 18.0, 'GK': 15.0,
