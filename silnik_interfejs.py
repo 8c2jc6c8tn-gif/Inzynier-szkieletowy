@@ -202,11 +202,25 @@ elif wybor == "Ściany":
         st.markdown("<h2 style='text-align: center;'>Wykończenie ścian</h2>", unsafe_allow_html=True)
         pow_netto = pow_scian_netto()
 
-        # Poszycie wewnętrzne – oddzielone grubą szarą linią, checkbox wyśrodkowany
+        # Poszycie wewnętrzne – oddzielone grubą szarą linią
         st.markdown("<hr style='border:2px solid #666; margin: 20px 0;'>", unsafe_allow_html=True)
+        
+        # Wyśrodkowany checkbox z powiększoną czcionką (styl CSS)
+        st.markdown("""
+        <style>
+        div[data-testid="stCheckbox"] label {
+            font-size: 1.8em;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            poszycie_wew = st.checkbox("Poszycie wewnętrzne", key='poszycie_wew')
+            poszycie_wew = st.checkbox("Poszycie wewnętrzne", value=st.session_state.poszycie_wew, key='poszycie_wew')
+        
         if poszycie_wew:
             # 1. Wełna główna
             grub_map = {"95x45":100, "145x45":150, "195x45":200}
@@ -258,7 +272,23 @@ elif wybor == "Ściany":
                 st.write(f"Koszt: **{mb_kant * cena_k:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
 
-            # 3. OSB wewn. (opcjonalne)
+            # 3. Paroizolacja (zawsze po izolacji, przed płytami)
+            st.markdown(f"<h3 style='margin:0'>Paroizolacja</h3>", unsafe_allow_html=True)
+            paro_opcje = {"Folia PE 0,2mm":3.5, "Folia PE 0,3mm":4.8, "Folia aluminiowa":8.2, "Membrana paroszczelna":6.5}
+            wybor_paro = st.selectbox("Rodzaj", list(paro_opcje.keys()), key='paroizolacja')
+            cena_paro_dom = paro_opcje[wybor_paro]
+            col_a6, col_b6 = st.columns([1,2])
+            own_paro = col_a6.checkbox("Własna cena", key='use_wlasna_cena_paro')
+            if own_paro:
+                cena_paro = col_b6.number_input("Cena za m²", value=st.session_state.cena_paro, key='cena_paro')
+            else:
+                cena_paro = cena_paro_dom
+                col_b6.write(f"Cena domyślna: {cena_paro_dom:.2f} zł/m²")
+            st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
+            st.write(f"Koszt: **{pow_netto * cena_paro:.2f} zł**")
+            st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
+
+            # 4. OSB wewn. (opcjonalne)
             uzyj_osb = st.checkbox("Płyta OSB-3 wewnętrzna", value=st.session_state.uzyj_osb_wew, key='uzyj_osb_wew')
             if uzyj_osb:
                 st.markdown(f"<h3 style='margin:0'>Płyta OSB-3 wewnętrzna</h3>", unsafe_allow_html=True)
@@ -275,7 +305,7 @@ elif wybor == "Ściany":
                 st.write(f"Koszt: **{pow_netto * cena_osb:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
 
-            # 4. Płyta GK (opcjonalna)
+            # 5. Płyta GK (opcjonalna)
             uzyj_gk = st.checkbox("Płyta gipsowo-kartonowa 12,5 mm", value=st.session_state.uzyj_gk_wew, key='uzyj_gk_wew')
             if uzyj_gk:
                 st.markdown(f"<h3 style='margin:0'>Płyta gipsowo-kartonowa 12,5 mm</h3>", unsafe_allow_html=True)
@@ -290,21 +320,6 @@ elif wybor == "Ściany":
                 st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
                 st.write(f"Koszt: **{pow_netto * cena_gk:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
-            # 5. Paroizolacja (zawsze w poszyciu wewn.)
-            st.markdown(f"<h3 style='margin:0'>Paroizolacja</h3>", unsafe_allow_html=True)
-            paro_opcje = {"Folia PE 0,2mm":3.5, "Folia PE 0,3mm":4.8, "Folia aluminiowa":8.2, "Membrana paroszczelna":6.5}
-            wybor_paro = st.selectbox("Rodzaj", list(paro_opcje.keys()), key='paroizolacja')
-            cena_paro_dom = paro_opcje[wybor_paro]
-            col_a6, col_b6 = st.columns([1,2])
-            own_paro = col_a6.checkbox("Własna cena", key='use_wlasna_cena_paro')
-            if own_paro:
-                cena_paro = col_b6.number_input("Cena za m²", value=st.session_state.cena_paro, key='cena_paro')
-            else:
-                cena_paro = cena_paro_dom
-                col_b6.write(f"Cena domyślna: {cena_paro_dom:.2f} zł/m²")
-            st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
-            st.write(f"Koszt: **{pow_netto * cena_paro:.2f} zł**")
 
         # Czerwona linia oddzielająca i poszycie zewnętrzne
         st.markdown("<hr style='border:2px solid #e74c3c; margin:25px 0;'>", unsafe_allow_html=True)
