@@ -13,12 +13,21 @@ def init_state():
         'otwory': [], 'dlugosc_desek': 600,
         'osb_zew': 12, 'osb_wew': 0, 'gk_wew': 12.5,
         'ocieplenie_dach': 15, 'podloga_podwojna': False,
-        'section': 'geometria'
+        'section': 'geometria',
+        'house_svg': None   # do odbioru kliknięć
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
+
 init_state()
+
+# ---------- OBSŁUGA KLIKNIĘĆ Z SVG ----------
+# Jeśli komponent house_svg zwrócił wartość, przepisujemy ją do section
+if st.session_state.house_svg is not None:
+    st.session_state.section = st.session_state.house_svg
+    # czyścimy, aby nie zapętlić
+    st.session_state.house_svg = None
 
 # ---------- FUNKCJE OBLICZENIOWE ----------
 def pow_podlogi():
@@ -44,7 +53,7 @@ def liczba_slupkow():
     rozstaw = st.session_state.rozstaw / 100
     n = math.ceil(obwod / rozstaw) + 4  # narożniki
     for o in st.session_state.otwory:
-        n += 2  # słupki przy otworach
+        n += 2
     return n
 
 def dlugosc_listwy():
@@ -59,44 +68,69 @@ def pow_dachu():
     rzut = (szer * dlug) / 1e4
     return rzut / math.cos(math.radians(st.session_state.kat))
 
-# ---------- MENU DOMKU ----------
-st.markdown("## 🏡 Kliknij na część domku, aby otworzyć moduł")
-st.markdown("---")
+# ---------- INTERAKTYWNY DOMEK SVG ----------
+html_code = """
+<style>
+    .house-svg { cursor: pointer; width: 300px; height: auto; display: block; margin: 0 auto; }
+    .section-label { font-size: 12px; font-family: sans-serif; pointer-events: none; }
+</style>
+<div style="text-align: center;">
+    <svg class="house-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- Dach -->
+        <polygon points="150,20 280,120 20,120" fill="#e74c3c" stroke="#333" stroke-width="2"
+                 onclick="sendSection('dach')" />
+        <!-- Lewa ściana -->
+        <rect x="20" y="120" width="100" height="120" fill="#f1c40f" stroke="#333" stroke-width="2"
+              onclick="sendSection('konstrukcja_scian')" />
+        <!-- Prawa ściana -->
+        <rect x="180" y="120" width="100" height="120" fill="#f1c40f" stroke="#333" stroke-width="2"
+              onclick="sendSection('poszycia')" />
+        <!-- Drzwi (front) -->
+        <rect x="130" y="170" width="40" height="70" fill="#8e44ad" stroke="#333" stroke-width="2"
+              onclick="sendSection('geometria')" />
+        <!-- Okno lewe -->
+        <rect x="40" y="150" width="40" height="40" fill="#ecf0f1" stroke="#333" stroke-width="2"
+              onclick="sendSection('geometria')" />
+        <!-- Okno prawe -->
+        <rect x="220" y="150" width="40" height="40" fill="#ecf0f1" stroke="#333" stroke-width="2"
+              onclick="sendSection('geometria')" />
+        <!-- Fundament / podłoga -->
+        <rect x="20" y="240" width="260" height="30" fill="#95a5a6" stroke="#333" stroke-width="2"
+              onclick="sendSection('podloga')" />
 
-# Górny rząd – DACH
-col_dach = st.columns([2, 3])[0]  # tylko pierwsza kolumna
-with col_dach:
-    if st.button("🔺 DACH (konstrukcja i wykończenie)", help="Moduł dachu", use_container_width=True):
-        st.session_state.section = "dach"
+        <!-- Etykiety (opcjonalnie) -->
+        <text x="150" y="85" text-anchor="middle" class="section-label" fill="white">DACH</text>
+        <text x="70" y="200" text-anchor="middle" class="section-label">LEWA ŚCIANA</text>
+        <text x="230" y="200" text-anchor="middle" class="section-label">PRAWA ŚCIANA</text>
+        <text x="150" y="265" text-anchor="middle" class="section-label" fill="white">PODŁOGA</text>
+    </svg>
+    <p style="color:gray; font-size:0.9em;">Kliknij element domku, aby przejść do modułu.</p>
+</div>
+<script>
+    function sendSection(section) {
+        window.parent.postMessage({
+            isStreamlitMessage: true,
+            type: "streamlit:setComponentValue",
+            value: section
+        }, "*");
+    }
+</script>
+"""
 
-# Środkowy rząd – ŚCIANY i OTWORY
-col_geom, col_konstr, col_posz = st.columns([1, 1, 1])
-with col_geom:
-    if st.button("📐 WYMIARY BUDYNKU", help="Geometria: wymiary, pow. podłogi, kubatura", use_container_width=True):
-        st.session_state.section = "geometria"
-with col_konstr:
-    if st.button("🏗️ KONSTRUKCJA ŚCIAN", help="Konstrukcja ścian + otwory", use_container_width=True):
-        st.session_state.section = "konstrukcja_scian"
-with col_posz:
-    if st.button("🧱 POSZYCIA I IZOLACJE", help="Poszycia zewn./wew. i ocieplenie", use_container_width=True):
-        st.session_state.section = "poszycia"
+st.components.v1.html(html_code, height=350, key="house_svg")
 
-# Dolny rząd – PODŁOGA, AKCESORIA, KOSZTORYS
-col_podl, col_akc, col_koszt = st.columns([1, 1, 1])
-with col_podl:
-    if st.button("🏠 PODŁOGA", help="Opcje podłogi (pojedyncza/podwójna)", use_container_width=True):
-        st.session_state.section = "podloga"
-with col_akc:
-    if st.button("🔩 AKCESORIA", help="Wkręty, taśmy, łączniki", use_container_width=True):
+# Dodatkowe przyciski dla modułów nie na domku (opcjonalnie)
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("🔩 AKCESORIA"):
         st.session_state.section = "akcesoria"
-with col_koszt:
-    if st.button("📊 KOSZTORYS", help="Pełny kosztorys", use_container_width=True):
+with col2:
+    if st.button("📊 KOSZTORYS"):
         st.session_state.section = "kosztorys"
 
 st.markdown("---")
 
 # ==================== MODUŁY ====================
-
 if st.session_state.section == "geometria":
     st.header("📐 Geometria budynku – wymiary główne")
     c1, c2 = st.columns(2)
@@ -174,14 +208,13 @@ elif st.session_state.section == "dach":
         pow_dach = pow_dachu()
         st.write(f"Powierzchnia do pokrycia: **{pow_dach:.2f} m²**")
 
-        # Dynamiczna lista materiałów
         if st.session_state.pokrycie == "Papa":
-            rolki_na_m2 = 0.5  # przykład: rolka 2m²
+            rolki_na_m2 = 0.5
             sztuk = math.ceil(pow_dach / rolki_na_m2)
             st.write("**Materiały:** Papa termozgrzewalna, podkład, gaz, itp.")
             st.write(f"- Papa w rolkach: {sztuk} szt. (orientacyjnie)")
         elif st.session_state.pokrycie == "Blachodachówka":
-            arkusze_na_m2 = 0.8  # przykładowo
+            arkusze_na_m2 = 0.8
             sztuk = math.ceil(pow_dach / arkusze_na_m2)
             st.write("**Materiały:** Blachodachówka, wkręty, gąsiory, itp.")
             st.write(f"- Arkusze: {sztuk} szt.")
@@ -189,7 +222,6 @@ elif st.session_state.section == "dach":
             st.write("**Materiały:** Membrana EPDM, klej, taśmy, itp.")
             st.write(f"- Membrana: {pow_dach:.1f} m² (kupowana na wymiar)")
 
-        # Ceny przykładowe
         ceny = {"Papa": 25.0, "Blachodachówka": 45.0, "EPDM": 70.0}
         cena_m2 = ceny[st.session_state.pokrycie]
         st.write(f"**Cena za m²:** {cena_m2:.2f} zł")
@@ -234,7 +266,7 @@ elif st.session_state.section == "akcesoria":
     st.write(f"- Opakowania (po 200 szt.): {opakowania}")
 
     st.subheader("Taśmy")
-    mb_tasm = obwod_scian() * 2  # uproszczenie
+    mb_tasm = obwod_scian() * 2
     st.write(f"- Taśma do folii: {mb_tasm:.1f} mb")
 
     st.subheader("Łączniki ciesielskie")
