@@ -202,11 +202,11 @@ elif wybor == "Ściany":
         st.markdown("<h2 style='text-align: center;'>Wykończenie ścian</h2>", unsafe_allow_html=True)
         pow_netto = pow_scian_netto()
 
-        # Poszycie wewnętrzne – oddzielone grubą szarą linią
+        # Poszycie wewnętrzne – oddzielone grubą szarą linią, rozwijane checkboxem, tytuł wycentrowany
         st.markdown("<hr style='border:2px solid #666; margin: 20px 0;'>", unsafe_allow_html=True)
-        poszycie_wew = st.checkbox("Poszycie wewnętrzne", key='poszycie_wew')
+        poszycie_wew = st.checkbox("Pokaż poszycie wewnętrzne", key='poszycie_wew')
         if poszycie_wew:
-            st.markdown("### Poszycie wewnętrzne")
+            st.markdown("<h2 style='text-align: center;'>Poszycie wewnętrzne</h2>", unsafe_allow_html=True)
 
             # 1. Wełna główna
             grub_map = {"95x45":100, "145x45":150, "195x45":200}
@@ -362,7 +362,7 @@ elif wybor == "Dach":
         st.divider()
         st.markdown(f"<h3 style='text-align:center;'>Powierzchnia dachu: {pow_dachu():.2f} m²</h3>", unsafe_allow_html=True)
 
-    else:
+    else:  # Wykończenie dachu
         st.subheader("Wykończenie dachu")
         st.selectbox("Pokrycie", ["Papa", "Blachodachówka", "Gont bitumiczny", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
