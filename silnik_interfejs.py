@@ -1,34 +1,25 @@
 import streamlit as st
-import json
+import math
 
-# 1. Wczytanie stałych (Standardy)
-# W rzeczywistym środowisku upewnij się, że plik stale.json jest w tym samym folderze
-try:
-    with open('stale.json', 'r') as f:
-        stale = json.load(f)
-except:
-    # Wartości domyślne na wypadek braku pliku
-    stale = {"standardy": {"rozstaw_belek": 0.6}, "ceny": {"drewno_mb": 5.5}}
+st.title("Kalkulator Dachu Jednospadowego")
 
-st.title("🏗️ Inżynier Szkieletowy v1.0")
+# Dane wejściowe
+szerokosc = st.number_input("Szerokość budynku (m):", min_value=1.0, value=6.0)
+kat = st.slider("Kąt nachylenia dachu (°):", min_value=5, max_value=45, value=20)
+okap = st.number_input("Wysięg okapu (m):", min_value=0.0, value=0.5)
 
-# 2. Interfejs użytkownika (Wprowadzanie zmiennych)
-st.sidebar.header("Parametry projektu")
-dlugosc = st.sidebar.number_input("Długość ściany (m)", 1.0, 20.0, 5.0)
-wysokosc = st.sidebar.number_input("Wysokość ściany (m)", 2.0, 5.0, 2.7)
-liczba_drzwi = st.sidebar.number_input("Liczba otworów drzwiowych", 0, 5, 0)
+# Konwersja kąta na radiany
+kat_rad = math.radians(kat)
 
-# 3. Silnik obliczeniowy
-if st.button("Oblicz materiał"):
-    rozstaw = stale['standardy']['rozstaw_belek']
-    slupki = int(dlugosc / rozstaw) + 1 - liczba_drzwi # proste odejmowanie za otwory
-    
-    st.success(f"Wynik dla ściany {dlugosc}m x {wysokosc}m:")
-    
-    # Prezentacja danych
-    st.write(f"### Potrzebna ilość słupków: {slupki} szt.")
-    st.write(f"### Łącznie drewna (mb): {round(slupki * wysokosc, 2)} mb")
-    
-    # Możliwość podejrzenia używanych stałych
-    with st.expander("Zobacz użyte standardy"):
-        st.json(stale)
+# Obliczenia
+dlugosc_krokwi = szerokosc / math.cos(kat_rad)
+dlugosc_okapu = okap / math.cos(kat_rad)
+calkowita_dlugosc = dlugosc_krokwi + dlugosc_okapu
+wysokosc_roznica = szerokosc * math.tan(kat_rad)
+
+# Wyniki
+st.subheader("Wyniki obliczeń:")
+st.write(f"Długość samej krokwi: {dlugosc_krokwi:.2f} m")
+st.write(f"Długość okapu: {dlugosc_okapu:.2f} m")
+st.write(f"**Całkowita długość krokwi: {calkowita_dlugosc:.2f} m**")
+st.write(f"Różnica wysokości (spadek): {wysokosc_roznica:.2f} m")
