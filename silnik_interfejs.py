@@ -62,11 +62,24 @@ with tab_geo:
     st.metric("Powierzchnia ścian netto", f"{pow_scian_netto:.2f} m²")
 
 # --- MODUŁ 2: KONSTRUKCJA ---
+# --- MODUŁ 2: KONSTRUKCJA ---
 with tab_konstr:
     st.header("2. Konstrukcja")
-    rodzaj_drewna = st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"])
-    dlugosc_desek = st.number_input("Długość desek (m)", value=5.0)
-    procent_odpadu = st.slider("Procent resztek/odpadu (%)", 0, 30, 15)
+    rodzaj_drewna = st.selectbox(
+        "Przekrój słupków", 
+        ["95x45", "145x45", "195x45"], 
+        key="konstr_drewno"
+    )
+    dlugosc_desek = st.number_input(
+        "Długość desek (m)", 
+        value=5.0, 
+        key="konstr_dlugosc"
+    )
+    procent_odpadu = st.slider(
+        "Procent resztek/odpadu (%)", 
+        0, 30, 15, 
+        key="konstr_odpad"
+    )
 
 # --- Pozostałe moduły (puste dla zachowania struktury) ---
 with tab_posz: st.write("Moduł w przygotowaniu...")
