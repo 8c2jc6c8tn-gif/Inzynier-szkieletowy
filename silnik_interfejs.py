@@ -13,28 +13,23 @@ def init_state():
         'slupki': "145x45", 'pokrycie': "Papa",
         'otwory': [], 'dlugosc_desek': 600,
         'osb_zew': 12, 'osb_wew': 0, 'gk_wew': 12.5,
-        'ocieplenie_dach': 15, 'technika_podlogi': 'Standardowa',
+        'technika_podlogi': 'Standardowa',
         'active_tab': 'Geometria',
         'cena_drewna_m3': 1600.0,
         'use_wlasna_cena': False,
         'dach_podstrona': 'Konstrukcja dachu',
         'sciany_podstrona': 'Konstrukcja ścian',
-        # nowe zmienne
-        'wiatro_dach': None,          # wybór wiatroizolacji dachowej
-        'izolacja_scian': False,      # checkbox izolacji termicznej ścian
-        'grubosc_izolacji_scian': 10, # cm
-        'rozstaw_kantowek': 60        # cm
+        'wiatro_dach': "Membrana Standard 120g",
+        'izolacja_scian_dodatkowa': False,
+        'paroizolacja': "Folia PE 0,2mm",
+        'paro_wew': False,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
-    # Uzupełnij id otworów
     for o in st.session_state.otwory:
         if 'id' not in o:
             o['id'] = str(uuid.uuid4())
-    # Domyślna wiatroizolacja dachu
-    if st.session_state.wiatro_dach is None:
-        st.session_state.wiatro_dach = "Membrana Standard 120g"
 
 init_state()
 
@@ -93,9 +88,7 @@ def pow_dachu():
 def nachylenie_procent():
     return math.tan(math.radians(st.session_state.kat)) * 100
 
-# Parametry dachu dla obliczeń materiałowych
 def dlugosc_polaci():
-    """Długość od kalenicy do okapu (w metrach)"""
     polowa_szer = (st.session_state.szer + st.session_state.okap_lewo + st.session_state.okap_prawo) / 2 / 100
     return polowa_szer / math.cos(math.radians(st.session_state.kat))
 
@@ -169,7 +162,6 @@ elif wybor == "Ściany":
         resztki = (sztuk * dl_handl_m - dl_calk) / (sztuk * dl_handl_m) * 100 if sztuk > 0 else 0
         m3 = objetosc_drewna()
 
-        # Układ 2x2 + 1
         r1c1, r1c2 = st.columns(2)
         r1c1.metric("Liczba słupków", n)
         r1c2.metric("Całkowita długość", f"{dl_calk:.2f} m")
@@ -190,42 +182,44 @@ elif wybor == "Ściany":
             st.write(f"**Koszt drewna (cena domyślna 1600 zł/m³):** {koszt_drewna:.2f} zł")
 
     else:  # Wykończenie ścian
-        st.subheader("Poszycie zewnętrzne")
+        st.subheader("Wykończenie ścian – kolejność warstw")
+
+        # 1. Dodatkowa izolacja termiczna ścian (opcjonalnie, tylko 5 cm)
+        st.markdown("### 1. Dodatkowa izolacja termiczna ścian")
+        if st.checkbox("Dodaj izolację termiczną ścian (wełna dotykowa 5 cm)", key='izolacja_scian_dodatkowa'):
+            pow_netto = pow_scian_netto()
+            st.write(f"**Wełna mineralna 5 cm:** {pow_netto:.1f} m²")
+
+        # 2. Paroizolacja (zawsze potrzebna, kilka do wyboru)
+        st.markdown("### 2. Paroizolacja")
+        paro_opcje = {
+            "Folia PE 0,2mm": 3.5,
+            "Folia PE 0,3mm": 4.8,
+            "Folia aluminiowa": 8.2,
+            "Membrana paroszczelna": 6.5
+        }
+        wybor_paro = st.selectbox("Wybierz paroizolację", list(paro_opcje.keys()), key='paroizolacja')
+        pow_netto = pow_scian_netto()
+        st.write(f"Powierzchnia do pokrycia: **{pow_netto:.2f} m²**")
+        st.write(f"Cena orientacyjna: **{paro_opcje[wybor_paro]:.2f} zł/m²**")
+        st.write(f"Koszt paroizolacji: **{pow_netto * paro_opcje[wybor_paro]:.2f} zł**")
+
+        # 3. Poszycie wewnętrzne – najpierw OSB, potem GK
+        st.markdown("### 3. Poszycie wewnętrzne")
+        st.number_input("Grubość OSB-3 wewn. (mm, 0=pomiń)", 0, 25, key='osb_wew')
+        st.number_input("Grubość płyty GK (mm)", 6, 25, key='gk_wew')
+
+        # 4. Poszycie zewnętrzne
+        st.markdown("### 4. Poszycie zewnętrzne")
         st.number_input("Grubość OSB-3 zewn. (mm)", 8, 25, key='osb_zew')
         wiatro_opcje = {"Membrana Standard 120g": 120, "Membrana Premium 160g": 160, "Folia wiatrochronna 100g": 100}
         wybor_wiatro = st.selectbox("Wiatroizolacja", list(wiatro_opcje.keys()), key='wiatro')
-        pow_netto = pow_scian_netto()
         pow_zapas = pow_netto * 1.1
         st.write(f"Powierzchnia ścian netto: {pow_netto:.2f} m²")
-        st.write(f"Potrzebna wiatroizolacja (z 10% zapasem): {pow_zapas:.2f} m²")
-
-        st.subheader("Poszycie wewnętrzne (opcjonalne)")
-        if st.checkbox("Dodaj poszycie wewnętrzne", key='posz_wew'):
-            st.number_input("Płyta GK (mm)", 6, 25, key='gk_wew')
-            st.number_input("OSB-3 wewn. (mm, 0=pomiń)", 0, 25, key='osb_wew')
-            st.checkbox("Paroizolacja", True, key='paro')
-
-        st.subheader("Izolacja termiczna ścian (opcjonalnie)")
-        if st.checkbox("Dodaj izolację termiczną ścian", key='izolacja_scian'):
-            col_iz1, col_iz2 = st.columns(2)
-            with col_iz1:
-                st.number_input("Grubość wełny (cm)", 5, 20, key='grubosc_izolacji_scian')
-            with col_iz2:
-                st.number_input("Rozstaw kantówek poziomych (cm)", 30, 80, key='rozstaw_kantowek')
-            # Obliczenia
-            wys_m = st.session_state.wys / 100
-            obwod_m = obwod_scian()
-            rozstaw_m = st.session_state.rozstaw_kantowek / 100
-            liczba_rzedow = math.ceil(wys_m / rozstaw_m) + 1
-            dlugosc_kantowek_m = liczba_rzedow * obwod_m
-            st.write(f"**Kantówki poziome (np. 45x45):** {dlugosc_kantowek_m:.1f} mb")
-            st.write(f"**Wełna mineralna:** {pow_netto:.1f} m² (gr. {st.session_state.grubosc_izolacji_scian} cm)")
+        st.write(f"Potrzebna wiatroizolacja (z 10% zapasem): **{pow_zapas:.2f} m²**")
 
         st.subheader("Elewacja")
         st.write("(Opcje wykończenia elewacji – deski, tynki itp. można dodać w przyszłości)")
-
-        st.subheader("Izolacja termiczna dachu")
-        st.number_input("Grubość ocieplenia dachu (cm)", 5, 30, key='ocieplenie_dach')
 
 elif wybor == "Dach":
     st.header("🔺 Dach")
@@ -235,17 +229,22 @@ elif wybor == "Dach":
         st.subheader("Rozstaw belek")
         st.selectbox("Rozstaw belek (cm)", [30, 40, 60], key='rozstaw_dach')
 
-        st.subheader("Pochylenie i okapy")
+        st.markdown("---")
+        st.subheader("Kąt nachylenia dachu")
+        kat = st.slider("Kąt (°)", 0, 45, key='kat')
+        # Wyraziste nachylenie
+        st.markdown(f"<h2 style='text-align: center; color: #e74c3c;'>Nachylenie: {nachylenie_procent():.1f}%</h2>", unsafe_allow_html=True)
+        st.caption("Wartość procentowa odpowiada stosunkowi wysokości do połowy rozpiętości.")
+
+        st.markdown("---")
+        st.subheader("Okapy")
         col1, col2 = st.columns(2)
         with col1:
-            kat = st.slider("Kąt nachylenia dachu (°)", 0, 45, key='kat')
-            st.caption(f"Nachylenie: **{nachylenie_procent():.1f}%**")
+            st.slider("Okap przód (cm)", 0, 100, key='okap_przod')
+            st.slider("Okap lewo (cm)", 0, 100, key='okap_lewo')
         with col2:
-            st.markdown("**Okapy (cm)**")
-            st.slider("Przód", 0, 100, key='okap_przod')
-            st.slider("Tył", 0, 100, key='okap_tyl')
-            st.slider("Lewo", 0, 100, key='okap_lewo')
-            st.slider("Prawo", 0, 100, key='okap_prawo')
+            st.slider("Okap tył (cm)", 0, 100, key='okap_tyl')
+            st.slider("Okap prawo (cm)", 0, 100, key='okap_prawo')
 
         st.divider()
         st.subheader("Podsumowanie")
@@ -263,18 +262,15 @@ elif wybor == "Dach":
             st.subheader("Papa – materiały")
             dl_polaci = dlugosc_polaci()
             szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
-            # Zakładka 10 cm -> efektywna szerokość rolki 0.9 m
             liczba_pasow = math.ceil(dl_polaci / 0.9)
             st.write(f"Długość połaci: **{dl_polaci:.2f} m** → przy zakładzie 10 cm potrzeba **{liczba_pasow} pasów** papy")
             if st.session_state.okap_przod < 20 or st.session_state.okap_tyl < 20:
                 st.info("💡 Zmniejszając okapy, można zejść do 3–4 pasów papy, co obniży koszty.")
-            # Papa podkładowa i wierzchnia – każda warstwa
-            pow_z_zakladem = pow_dach * 1.15  # 15% zapas na zakłady i odpady
-            rolki = math.ceil(pow_z_zakladem / 10)  # rolka 10 m²
+            pow_z_zakladem = pow_dach * 1.15
+            rolki = math.ceil(pow_z_zakladem / 10)
             st.write(f"**Papa podkładowa:** {rolki} rolek (10 m²/rolka)")
             st.write(f"**Papa wierzchnia:** {rolki} rolek (10 m²/rolka)")
-            # Lepik / masa bitumiczna
-            masa_kg = pow_dach * 0.5  # szacunkowo 0.5 kg/m²
+            masa_kg = pow_dach * 0.5
             st.write(f"**Masa bitumiczna (lepik):** ok. {masa_kg:.1f} kg (np. {math.ceil(masa_kg/5)} wiaderek 5 kg)")
 
         # ----- BLACHODACHÓWKA -----
@@ -284,37 +280,33 @@ elif wybor == "Dach":
             cena_arkusz = 85.0
             st.write(f"- **Arkusze blachodachówki:** {arkusze} szt. (0.8 m²/szt.)")
             st.write(f"  Koszt: {arkusze * cena_arkusz:.2f} zł")
-            # Wiatroizolacja
+
             st.selectbox("Wiatroizolacja dachu", list({"Membrana Standard 120g":120, "Membrana Premium 160g":160}.keys()), key='wiatro_dach')
-            rolki_wiatro = math.ceil(pow_dach * 1.1 / 50)  # rolka 50 m²
+            rolki_wiatro = math.ceil(pow_dach * 1.1 / 50)
             st.write(f"- **Wiatroizolacja:** {rolki_wiatro} rolek (50 m²/rolka, z zapasem)")
-            # Łaty i kontrłaty
+
             liczba_kr = liczba_krokwi()
             dl_pol = dlugosc_polaci()
-            kontr_laty_mb = liczba_kr * dl_pol * 2  # dwie połacie
-            # Łaty poziome co 35 cm
+            szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
+            kontr_laty_mb = liczba_kr * dl_pol * 2
             rozstaw_lat = 0.35
             liczba_lat = math.ceil(dl_pol / rozstaw_lat) + 1
             laty_mb = liczba_lat * szer_polaci * 2
             st.write(f"- **Kontrłaty (np. 25x50):** {kontr_laty_mb:.1f} mb")
             st.write(f"- **Łaty (np. 40x50):** {laty_mb:.1f} mb")
-            # Wkręty do blachodachówki
-            wkrety_blacha = arkusze * 8  # średnio 8 wkrętów na arkusz
+
+            wkrety_blacha = arkusze * 8
             st.write(f"- **Wkręty farmerskie z uszczelką:** ok. {wkrety_blacha} szt.")
 
         # ----- GONT BITUMICZNY -----
         elif st.session_state.pokrycie == "Gont bitumiczny":
             st.subheader("Gont bitumiczny – materiały")
-            # Podkład (papa podkładowa)
             rolki_podklad = math.ceil(pow_dach * 1.1 / 10)
             st.write(f"- **Papa podkładowa:** {rolki_podklad} rolek (10 m²/rolka, z zapasem)")
-            # Gonty
-            opakowania_gont = math.ceil(pow_dach / 3)  # 1 op. = 3 m²
+            opakowania_gont = math.ceil(pow_dach / 3)
             st.write(f"- **Gont bitumiczny:** {opakowania_gont} opakowań (3 m²/op.)")
-            # Masa bitumiczna
-            tubki = math.ceil(pow_dach / 5)  # 1 tubka na 5 m²
+            tubki = math.ceil(pow_dach / 5)
             st.write(f"- **Masa bitumiczna (tubki):** {tubki} szt. (do uszczelnień)")
-            # Wiatroizolacja jako opcja
             if st.checkbox("Dodaj wiatroizolację dachową"):
                 st.selectbox("Wiatroizolacja", list({"Membrana Standard 120g":120, "Membrana Premium 160g":160}.keys()), key='wiatro_dach_gont')
                 rolki_wiatro = math.ceil(pow_dach * 1.1 / 50)
@@ -342,10 +334,8 @@ elif wybor == "Podłoga":
 
     if st.session_state.technika_podlogi == "Ze stołem roboczym (dodatkowa warstwa OSB)":
         st.subheader("Materiały na stół roboczy")
-        # Płyty OSB 22 mm
-        plyty_osb = math.ceil(pow_podl * 1.1 / 3)  # płyta 125x250 = 3.125 m², ale zaokrąglam 3 m²
+        plyty_osb = math.ceil(pow_podl * 1.1 / 3)
         st.write(f"- **Płyty OSB-3 (22 mm):** {plyty_osb} szt. (3.1 m²/szt., z 10% zapasem)")
-        # Legary (co 60 cm, wzdłuż krótszego boku)
         krotszy = min(st.session_state.szer, st.session_state.dlug)
         dluzszy = max(st.session_state.szer, st.session_state.dlug)
         ile_legarow = math.ceil(dluzszy / 60) + 1
@@ -355,31 +345,25 @@ elif wybor == "Podłoga":
 
 elif wybor == "Akcesoria":
     st.header("🔩 Akcesoria i łączniki")
-    # Wkręty do OSB
     pow_osb = pow_scian_netto()
     wkrety_osb = math.ceil(pow_osb * 25 * 1.15)
     op_osb = math.ceil(wkrety_osb / 200)
     st.write(f"**Wkręty do OSB (Klimas WK 4,5x60):** {wkrety_osb} szt. → {op_osb} op. (200 szt./op.) * ~35 zł/op.")
 
-    # Wkręty do GK (jeśli wybrano płyty GK)
-    if st.session_state.get('posz_wew', False) and st.session_state.get('gk_wew', 0) > 0:
+    if st.session_state.get('gk_wew', 0) > 0:
         pow_gk = pow_scian_netto()
-        wkrety_gk = math.ceil(pow_gk * 20 * 1.15)  # ok. 20 szt/m²
+        wkrety_gk = math.ceil(pow_gk * 20 * 1.15)
         op_gk = math.ceil(wkrety_gk / 1000)
         st.write(f"**Wkręty do GK (Klimas 3,5x25):** {wkrety_gk} szt. → {op_gk} op. (1000 szt./op.) * ~20 zł/op.")
 
-    # Wkręty ciesielskie (do konstrukcji)
-    st.write(f"**Wkręty ciesielskie (Klimas WK 6x80):** ok. {liczbę_slupkow() * 4} szt. (do połączeń słupków) → {math.ceil(liczbę_slupkow() * 4 / 100)} op. (100 szt./op.) * ~45 zł/op.")
+    st.write(f"**Wkręty ciesielskie (Klimas WK 6x80):** ok. {liczba_slupkow() * 4} szt. (do połączeń słupków) → {math.ceil(liczba_slupkow() * 4 / 100)} op. (100 szt./op.) * ~45 zł/op.")
 
-    # Taśmy
     mb_tasm = obwod_scian() * 2
     st.write(f"**Taśma butylowa do folii:** {mb_tasm:.1f} mb → {math.ceil(mb_tasm/10)} rolek (10 m/rolka) * ~25 zł/rolka")
 
-    # Kątowniki
     katowniki = liczba_slupkow() * 2
     st.write(f"**Kątowniki montażowe (60x60x40):** {katowniki} szt. * ~3,5 zł/szt.")
 
-    # Dodatkowo akcesoria dachowe – jeśli wybrano blachodachówkę
     if st.session_state.pokrycie == "Blachodachówka":
         st.write(f"**Wkręty farmerskie do blachodachówki:** ok. {math.ceil(pow_dachu() / 0.8) * 8} szt. → {math.ceil(math.ceil(pow_dachu() / 0.8) * 8 / 250)} op. (250 szt./op.) * ~55 zł/op.")
 
@@ -390,7 +374,6 @@ elif wybor == "Kosztorys":
     else:
         cena_drewna = 1600.0
 
-    # Sekcje kosztorysu
     st.subheader("Konstrukcja")
     m3 = objetosc_drewna()
     st.write(f"- Drewno konstrukcyjne: {m3:.3f} m³ × {cena_drewna:.2f} zł/m³ = **{m3 * cena_drewna:.2f} zł**")
@@ -398,7 +381,13 @@ elif wybor == "Kosztorys":
     st.subheader("Poszycia")
     pow_netto = pow_scian_netto()
     st.write(f"- OSB-3 zewnętrzne: {pow_netto:.1f} m² × 18 zł/m² = **{pow_netto * 18:.2f} zł**")
+    if st.session_state.get('osb_wew', 0) > 0:
+        st.write(f"- OSB-3 wewnętrzne: {pow_netto:.1f} m² × 18 zł/m² = **{pow_netto * 18:.2f} zł**")
+    if st.session_state.get('gk_wew', 0) > 0:
+        st.write(f"- Płyty GK: {pow_netto:.1f} m² × 15 zł/m² = **{pow_netto * 15:.2f} zł**")
     st.write(f"- Wiatroizolacja: {pow_netto*1.1:.1f} m² × 8 zł/m² = **{pow_netto*1.1*8:.2f} zł**")
+    paro_cena = {"Folia PE 0,2mm": 3.5, "Folia PE 0,3mm": 4.8, "Folia aluminiowa": 8.2, "Membrana paroszczelna": 6.5}
+    st.write(f"- Paroizolacja: {pow_netto:.1f} m² × {paro_cena[st.session_state.paroizolacja]:.2f} zł/m² = **{pow_netto * paro_cena[st.session_state.paroizolacja]:.2f} zł**")
 
     st.subheader("Dach")
     pow_dach = pow_dachu()
@@ -412,7 +401,7 @@ elif wybor == "Kosztorys":
         st.write(f"   Łaty/kontrłaty: ok. **200.00 zł** (szacunkowo)")
     elif st.session_state.pokrycie == "Gont bitumiczny":
         st.write(f"   Gonty: {math.ceil(pow_dach/3)} op. × 120 zł = **{math.ceil(pow_dach/3)*120:.2f} zł**")
-    else:  # EPDM
+    else:
         st.write(f"   Membrana EPDM + klej: ok. **{pow_dach*90 + pow_dach/5*30:.2f} zł**")
 
     st.subheader("Podłoga")
@@ -425,8 +414,8 @@ elif wybor == "Kosztorys":
     st.write("- Wkręty, taśmy, kątowniki: ok. **150.00 zł** (orientacyjnie)")
 
     st.divider()
-    suma_calosc = (m3 * cena_drewna + pow_netto * (18 + 8*1.1) +
-                   (math.ceil(pow_dach*1.15/10)*2*120 + pow_dach*0.5*6) +  # Papa
+    suma_calosc = (m3 * cena_drewna + pow_netto * (18 + 8*1.1 + paro_cena[st.session_state.paroizolacja]) +
+                   (math.ceil(pow_dach*1.15/10)*2*120 + pow_dach*0.5*6) +
                    (150 + pow_podlogi()*50 if st.session_state.technika_podlogi == "Ze stołem roboczym (dodatkowa warstwa OSB)" else 150))
     st.subheader(f"**Szacunkowa suma całkowita: {suma_calosc:.2f} zł**")
     st.caption("Ceny są orientacyjne – bazują na wprowadzonych danych.")
