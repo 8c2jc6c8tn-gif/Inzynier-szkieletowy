@@ -18,56 +18,70 @@ def init_state():
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
-    # Upewnij się, że każdy otwór ma unikalny identyfikator
+    # Każdy otwór dostaje unikalny identyfikator
     for o in st.session_state.otwory:
         if 'id' not in o:
             o['id'] = str(uuid.uuid4())
 
 init_state()
 
-# ---------- FUNKCJE OBLICZENIOWE ----------
+# ---------- POPRAWIONE FUNKCJE OBLICZENIOWE ----------
 def pow_podlogi():
-    return st.session_state.szer * st.session_state.dlug / 1e4
+    """Powierzchnia podłogi w m² (wymiary w cm)"""
+    return st.session_state.szer * st.session_state.dlug / 10_000
 
 def kubatura():
+    """Kubatura w m³"""
     return pow_podlogi() * st.session_state.wys / 100
 
 def pow_scian_brutto():
-    return 2 * (st.session_state.szer + st.session_state.dlug) * st.session_state.wys / 1e6
+    """Powierzchnia brutto ścian w m² (bez odliczania otworów)"""
+    obwod = 2 * (st.session_state.szer + st.session_state.dlug)  # cm
+    pole_cm2 = obwod * st.session_state.wys
+    return pole_cm2 / 10_000  # 1 m² = 10 000 cm²
 
 def pow_otworow():
-    return sum(o['szer'] * o['wys'] for o in st.session_state.otwory) / 1e6
+    """Łączna powierzchnia wszystkich otworów w m²"""
+    suma_cm2 = 0
+    for o in st.session_state.otwory:
+        suma_cm2 += o.get('szer', 0) * o.get('wys', 0)
+    return suma_cm2 / 10_000
 
 def pow_scian_netto():
-    return max(0, pow_scian_brutto() - pow_otworow())
+    """Powierzchnia netto ścian (brutto minus otwory)"""
+    return max(0.0, pow_scian_brutto() - pow_otworow())
 
 def obwod_scian():
+    """Obwód ścian w metrach"""
     return 2 * (st.session_state.szer + st.session_state.dlug) / 100
 
 def liczba_slupkow():
-    obwod = obwod_scian()
-    rozstaw = st.session_state.rozstaw / 100
-    n = math.ceil(obwod / rozstaw) + 4
+    obwod = obwod_scian()  # m
+    rozstaw = st.session_state.rozstaw / 100  # zamiana cm na m
+    n = math.ceil(obwod / rozstaw) + 4  # narożniki
     for _ in st.session_state.otwory:
-        n += 2
-    return n
+        n += 2  # dodatkowe słupki przy otworach
+    return max(n, 4)
 
 def dlugosc_listwy():
+    """Całkowita długość listew (słupków) w metrach"""
     return liczba_slupkow() * st.session_state.wys / 100
 
-def ile_desek(dlugosc_calkowita, dlugosc_handlowa_cm):
-    # dlugosc_handlowa_cm jest w cm, zamieniamy na metry
-    return math.ceil(dlugosc_calkowita / (dlugosc_handlowa_cm / 100))
+def ile_desek(dlugosc_calkowita_m, dlugosc_handlowa_cm):
+    """Ile desek o podanej długości handlowej (cm) potrzeba"""
+    dl_handl_m = dlugosc_handlowa_cm / 100
+    return math.ceil(dlugosc_calkowita_m / dl_handl_m)
 
 def pow_dachu():
+    """Powierzchnia połaci dachowej w m² (uwzględnia okapy i kąt)"""
     szer = st.session_state.szer + st.session_state.okap_lewo + st.session_state.okap_prawo
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
-    rzut = (szer * dlug) / 1e4
-    return rzut / math.cos(math.radians(st.session_state.kat))
+    rzut_m2 = (szer * dlug) / 10_000
+    return rzut_m2 / math.cos(math.radians(st.session_state.kat))
 
 # ---------- INTERFEJS: ZAKŁADKI ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
-st.caption("Wszystkie dane są współdzielone między modułami. Klikaj w zakładki poniżej.")
+st.caption("Wszystkie dane są współdzielone między modułami.")
 
 tabs = st.tabs([
     "📐 Geometria",
@@ -106,17 +120,15 @@ with tabs[1]:
 
     st.divider()
     st.subheader("🚪 Otwory (drzwi i okna)")
-    # Wyświetlanie otworów w stabilny sposób (klucze oparte na unikalnym ID)
     for o in st.session_state.otwory:
         oid = o['id']
         cols = st.columns([2,2,2,1])
         cols[0].text_input("Nazwa", o.get('nazwa',''), key=f"nazwa_{oid}")
-        cols[1].number_input("Szer (cm)", 30, 500, o['szer'], key=f"szer_{oid}")
-        cols[2].number_input("Wys (cm)", 30, 500, o['wys'], key=f"wys_{oid}")
+        cols[1].number_input("Szer (cm)", 30, 500, o.get('szer',100), key=f"szer_{oid}")
+        cols[2].number_input("Wys (cm)", 30, 500, o.get('wys',120), key=f"wys_{oid}")
         if cols[3].button("❌", key=f"del_{oid}"):
             st.session_state.otwory = [x for x in st.session_state.otwory if x['id'] != oid]
             st.rerun()
-
     if st.button("➕ Dodaj otwór"):
         new_id = str(uuid.uuid4())
         st.session_state.otwory.append({
@@ -129,12 +141,11 @@ with tabs[1]:
 
     st.divider()
     st.subheader("Zapotrzebowanie na drewno")
-    obwod = obwod_scian()
     n = liczba_slupkow()
     dl_calk = dlugosc_listwy()
     sztuk = ile_desek(dl_calk, st.session_state.dlugosc_desek)
-    dl_handl = st.session_state.dlugosc_desek / 100
-    resztki = (sztuk * dl_handl - dl_calk) / (sztuk * dl_handl) * 100 if sztuk > 0 else 0
+    dl_handl_m = st.session_state.dlugosc_desek / 100
+    resztki = (sztuk * dl_handl_m - dl_calk) / (sztuk * dl_handl_m) * 100 if sztuk > 0 else 0
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Liczba słupków", n)
@@ -187,13 +198,13 @@ with tabs[3]:
         st.write(f"Powierzchnia do pokrycia: **{pow_dach:.2f} m²**")
 
         if st.session_state.pokrycie == "Papa":
-            rolki_na_m2 = 0.5
-            sztuk = math.ceil(pow_dach / rolki_na_m2)
+            # przykładowe zużycie: 1 rolka = 2 m²
+            sztuk = math.ceil(pow_dach / 2)
             st.write("**Materiały:** Papa termozgrzewalna, podkład, gaz, itp.")
             st.write(f"- Papa w rolkach: {sztuk} szt. (orientacyjnie)")
         elif st.session_state.pokrycie == "Blachodachówka":
-            arkusze_na_m2 = 0.8
-            sztuk = math.ceil(pow_dach / arkusze_na_m2)
+            # przykładowe zużycie: 1 arkusz = 0.8 m²
+            sztuk = math.ceil(pow_dach / 0.8)
             st.write("**Materiały:** Blachodachówka, wkręty, gąsiory, itp.")
             st.write(f"- Arkusze: {sztuk} szt.")
         elif st.session_state.pokrycie == "EPDM":
@@ -224,7 +235,7 @@ with tabs[5]:
     st.write(f"- Opakowania (po 200 szt.): {opakowania}")
 
     st.subheader("Taśmy")
-    mb_tasm = obwod_scian() * 2
+    mb_tasm = obwod_scian() * 2  # przybliżenie
     st.write(f"- Taśma do folii: {mb_tasm:.1f} mb")
 
     st.subheader("Łączniki ciesielskie")
