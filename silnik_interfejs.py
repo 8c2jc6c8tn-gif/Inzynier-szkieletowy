@@ -17,7 +17,7 @@ def init_state():
         'active_tab': 'Geometria',
         'cena_drewna_m3': 1600.0,
         'use_wlasna_cena': False,
-        'dach_podstrona': 'Konstrukcja'
+        'dach_podstrona': 'Konstrukcja dachu'
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -88,7 +88,6 @@ zakladki = ["Geometria", "Konstrukcja ścian", "Wykończenie ścian", "Dach", "P
 wybor = st.radio("", zakladki, key='active_tab', horizontal=True)
 
 # ==================== MODUŁY ====================
-
 if wybor == "Geometria":
     st.header("📐 Geometria budynku – wymiary główne")
     c1, c2 = st.columns(2)
@@ -156,9 +155,10 @@ elif wybor == "Konstrukcja ścian":
     if use_wlasna:
         st.number_input("Twoja cena za m³ (zł)", min_value=0.0, value=st.session_state.cena_drewna_m3, step=100.0, key='cena_drewna_m3')
         koszt_drewna = m3 * st.session_state.cena_drewna_m3
+        st.write(f"**Koszt drewna (wg Twojej ceny):** {koszt_drewna:.2f} zł")
     else:
         koszt_drewna = m3 * 1600.0
-    st.write(f"Koszt drewna: **{koszt_drewna:.2f} zł** (wg {'Twojej' if use_wlasna else 'domyślnej'} ceny)")
+        st.write(f"**Koszt drewna (cena domyślna 1600 zł/m³):** {koszt_drewna:.2f} zł")
 
 elif wybor == "Wykończenie ścian":
     st.header("🧱 Wykończenie ścian")
@@ -185,10 +185,9 @@ elif wybor == "Wykończenie ścian":
 
 elif wybor == "Dach":
     st.header("🔺 Dach")
-    dach_opcje = st.radio("Wybierz podstronę", ["Konstrukcja dachu", "Wykończenie dachu"], key='dach_podstrona', horizontal=True)
+    dach_opcje = st.radio("", ["Konstrukcja dachu", "Wykończenie dachu"], key='dach_podstrona', horizontal=True)
 
     if dach_opcje == "Konstrukcja dachu":
-        st.markdown("---")
         st.subheader("Rozdział 1: Rozstaw belek")
         st.selectbox("Rozstaw belek (cm)", [30, 40, 60], key='rozstaw_dach')
 
@@ -203,7 +202,7 @@ elif wybor == "Dach":
             st.slider("Lewo", 0, 100, key='okap_lewo')
             st.slider("Prawo", 0, 100, key='okap_prawo')
 
-        st.markdown("---")
+        st.divider()
         st.subheader("Podsumowanie")
         st.metric("Całkowita powierzchnia dachu", f"{pow_dachu():.2f} m²")
 
