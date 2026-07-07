@@ -1,5 +1,6 @@
 import streamlit as st
 import math
+import uuid
 
 st.set_page_config(layout="wide", page_title="Inżynier Szkieletowy Pro")
 
@@ -17,6 +18,10 @@ def init_state():
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
+    # Upewnij się, że każdy otwór ma unikalny identyfikator
+    for o in st.session_state.otwory:
+        if 'id' not in o:
+            o['id'] = str(uuid.uuid4())
 
 init_state()
 
@@ -43,15 +48,16 @@ def liczba_slupkow():
     obwod = obwod_scian()
     rozstaw = st.session_state.rozstaw / 100
     n = math.ceil(obwod / rozstaw) + 4
-    for o in st.session_state.otwory:
+    for _ in st.session_state.otwory:
         n += 2
     return n
 
 def dlugosc_listwy():
     return liczba_slupkow() * st.session_state.wys / 100
 
-def ile_desek(dlugosc_calkowita, dlugosc_handlowa):
-    return math.ceil(dlugosc_calkowita / (dlugosc_handlowa / 100))
+def ile_desek(dlugosc_calkowita, dlugosc_handlowa_cm):
+    # dlugosc_handlowa_cm jest w cm, zamieniamy na metry
+    return math.ceil(dlugosc_calkowita / (dlugosc_handlowa_cm / 100))
 
 def pow_dachu():
     szer = st.session_state.szer + st.session_state.okap_lewo + st.session_state.okap_prawo
@@ -61,7 +67,7 @@ def pow_dachu():
 
 # ---------- INTERFEJS: ZAKŁADKI ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
-st.caption("Przełączaj się między modułami – wszystkie dane są współdzielone.")
+st.caption("Wszystkie dane są współdzielone między modułami. Klikaj w zakładki poniżej.")
 
 tabs = st.tabs([
     "📐 Geometria",
@@ -100,16 +106,25 @@ with tabs[1]:
 
     st.divider()
     st.subheader("🚪 Otwory (drzwi i okna)")
-    for i, o in enumerate(st.session_state.otwory):
+    # Wyświetlanie otworów w stabilny sposób (klucze oparte na unikalnym ID)
+    for o in st.session_state.otwory:
+        oid = o['id']
         cols = st.columns([2,2,2,1])
-        cols[0].text_input("Nazwa", o.get('nazwa',''), key=f"nazwa_{i}")
-        cols[1].number_input("Szer (cm)", 30, 500, o['szer'], key=f"szer_{i}")
-        cols[2].number_input("Wys (cm)", 30, 500, o['wys'], key=f"wys_{i}")
-        if cols[3].button("❌", key=f"del_{i}"):
-            st.session_state.otwory.pop(i)
+        cols[0].text_input("Nazwa", o.get('nazwa',''), key=f"nazwa_{oid}")
+        cols[1].number_input("Szer (cm)", 30, 500, o['szer'], key=f"szer_{oid}")
+        cols[2].number_input("Wys (cm)", 30, 500, o['wys'], key=f"wys_{oid}")
+        if cols[3].button("❌", key=f"del_{oid}"):
+            st.session_state.otwory = [x for x in st.session_state.otwory if x['id'] != oid]
             st.rerun()
+
     if st.button("➕ Dodaj otwór"):
-        st.session_state.otwory.append({'nazwa': 'Okno', 'szer': 100, 'wys': 120})
+        new_id = str(uuid.uuid4())
+        st.session_state.otwory.append({
+            'id': new_id,
+            'nazwa': 'Okno',
+            'szer': 100,
+            'wys': 120
+        })
         st.rerun()
 
     st.divider()
@@ -117,8 +132,8 @@ with tabs[1]:
     obwod = obwod_scian()
     n = liczba_slupkow()
     dl_calk = dlugosc_listwy()
-    dl_handl = st.session_state.dlugosc_desek / 100
     sztuk = ile_desek(dl_calk, st.session_state.dlugosc_desek)
+    dl_handl = st.session_state.dlugosc_desek / 100
     resztki = (sztuk * dl_handl - dl_calk) / (sztuk * dl_handl) * 100 if sztuk > 0 else 0
 
     c1, c2, c3 = st.columns(3)
