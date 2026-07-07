@@ -24,8 +24,7 @@ def init_state():
         'dlugosc_rolki_papa': 10.0,
         'szerokosc_rolki_papa': 1.0,
         'zaklad_papa': 0.10,
-        'dodatkowa_izolacja': False,   # <-- dodane
-        # ceny własne
+        'dodatkowa_izolacja': False,
         'cena_osb_wew': 18.0, 'cena_gk': 15.0, 'cena_paro': 3.5,
         'cena_welna_glowna': 35.0, 'cena_welna_dod': 25.0, 'cena_kantowki': 6.0,
         'cena_osb_zew': 18.0, 'cena_wiatro': 8.0,
@@ -99,7 +98,6 @@ def liczba_krokwi():
     return math.ceil(dl_cm / st.session_state.get('rozstaw_dach', 60)) + 1
 
 def obwod_dachu():
-    """Obwód dachu w metrach (potrzebne do EPDM)"""
     szer = st.session_state.szer + st.session_state.okap_lewo + st.session_state.okap_prawo
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     return 2 * (szer + dlug) / 100
@@ -187,7 +185,8 @@ elif wybor == "Ściany":
         st.checkbox("Uwzględnij poszycie wewnętrzne", key='posz_wew')
 
         if st.session_state.posz_wew:
-            st.markdown("## Poszycie wewnętrzne")
+            st.markdown("<div style='border-top: 2px solid white; margin: 20px 0;'></div>", unsafe_allow_html=True)
+            st.markdown("### Poszycie wewnętrzne")
             pow_netto = pow_scian_netto()
 
             # 1. Izolacja główna
@@ -281,7 +280,8 @@ elif wybor == "Ściany":
             st.write(f"Koszt: **{pow_netto * cena_paro:.2f} zł**")
 
         # Poszycie zewnętrzne
-        st.markdown("## Poszycie zewnętrzne")
+        st.markdown("<div style='border-top: 2px solid white; margin: 20px 0;'></div>", unsafe_allow_html=True)
+        st.markdown("### Poszycie zewnętrzne")
         pow_netto = pow_scian_netto()
         st.markdown("**Płyta OSB-3 zewn.**")
         st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_zew')
@@ -321,7 +321,8 @@ elif wybor == "Dach":
         st.selectbox("Rozstaw (cm)", [30,40,60], key='rozstaw_dach')
         st.markdown("---")
         st.subheader("Kąt nachylenia")
-        kat = st.slider("Kąt (°)", 0,45, key='kat')
+        # jawnie ustawiamy value z session_state
+        kat = st.slider("Kąt (°)", 0, 45, value=st.session_state.kat, key='kat')
         nachyl = nachylenie_procent()
         st.markdown(f"<h2 style='text-align:center; color:#e74c3c;'>{nachyl:.1f}%</h2>", unsafe_allow_html=True)
         st.markdown("---")
@@ -329,11 +330,11 @@ elif wybor == "Dach":
         st.markdown("<div style='font-size:1.2em'>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            st.slider("Przód (cm)", 0,100, key='okap_przod')
-            st.slider("Lewo (cm)", 0,100, key='okap_lewo')
+            st.slider("Przód (cm)", 0, 100, value=st.session_state.okap_przod, key='okap_przod')
+            st.slider("Lewo (cm)", 0, 100, value=st.session_state.okap_lewo, key='okap_lewo')
         with c2:
-            st.slider("Tył (cm)", 0,100, key='okap_tyl')
-            st.slider("Prawo (cm)", 0,100, key='okap_prawo')
+            st.slider("Tył (cm)", 0, 100, value=st.session_state.okap_tyl, key='okap_tyl')
+            st.slider("Prawo (cm)", 0, 100, value=st.session_state.okap_prawo, key='okap_prawo')
         st.markdown("</div>", unsafe_allow_html=True)
         st.divider()
         st.markdown(f"<h3 style='text-align:center;'>Powierzchnia dachu: {pow_dachu():.2f} m²</h3>", unsafe_allow_html=True)
@@ -432,13 +433,23 @@ elif wybor == "Akcesoria":
     kat = liczba_slupkow() * 2
 
     html_tabela = f"""
-    <table style="width:100%; border-collapse:collapse;">
-    <tr style="background:#ddd;"><th>Produkt</th><th>Ilość</th><th>Opakowania</th><th>Cena jedn.</th><th>Koszt</th></tr>
-    <tr><td>Wkręty OSB (Klimas 4,5x60)</td><td>{wkrety_osb} szt.</td><td>{op_osb} op. (200 szt.)</td><td>35 zł/op.</td><td>{op_osb*35:.0f} zł</td></tr>
+    <table style="width:100%; border-collapse:collapse; color:black;">
+    <tr style="background:#34495e; color:white; font-weight:bold;">
+        <th>Produkt</th><th>Ilość</th><th>Opakowania</th><th>Cena jedn.</th><th>Koszt</th>
+    </tr>
+    <tr>
+        <td>Wkręty OSB (Klimas 4,5x60)</td><td>{wkrety_osb} szt.</td><td>{op_osb} op. (200 szt.)</td><td>35 zł/op.</td><td>{op_osb*35:.0f} zł</td>
+    </tr>
     {f'<tr><td>Wkręty GK (Klimas 3,5x25)</td><td>{wkrety_gk} szt.</td><td>{op_gk} op. (1000 szt.)</td><td>20 zł/op.</td><td>{op_gk*20:.0f} zł</td></tr>' if wkrety_gk else ''}
-    <tr><td>Wkręty ciesielskie (6x80)</td><td>{wkr_cies} szt.</td><td>{op_cies} op. (100 szt.)</td><td>45 zł/op.</td><td>{op_cies*45:.0f} zł</td></tr>
-    <tr><td>Taśma butylowa</td><td>{mb_tasm:.1f} mb</td><td>{rolki_tasm} rolki (10 m)</td><td>25 zł/rolka</td><td>{rolki_tasm*25:.0f} zł</td></tr>
-    <tr><td>Kątowniki 60x60x40</td><td>{kat} szt.</td><td>-</td><td>3,5 zł/szt.</td><td>{kat*3.5:.0f} zł</td></tr>
+    <tr>
+        <td>Wkręty ciesielskie (6x80)</td><td>{wkr_cies} szt.</td><td>{op_cies} op. (100 szt.)</td><td>45 zł/op.</td><td>{op_cies*45:.0f} zł</td>
+    </tr>
+    <tr>
+        <td>Taśma butylowa</td><td>{mb_tasm:.1f} mb</td><td>{rolki_tasm} rolki (10 m)</td><td>25 zł/rolka</td><td>{rolki_tasm*25:.0f} zł</td>
+    </tr>
+    <tr>
+        <td>Kątowniki 60x60x40</td><td>{kat} szt.</td><td>-</td><td>3,5 zł/szt.</td><td>{kat*3.5:.0f} zł</td>
+    </tr>
     </table>
     """
     st.markdown(html_tabela, unsafe_allow_html=True)
@@ -450,4 +461,114 @@ elif wybor == "Akcesoria":
 # ==================== KOSZTORYS ====================
 elif wybor == "Kosztorys":
     st.header("📊 Kosztorys zbiorczy")
-    st.info("Funkcja zostanie rozbudowana po ustaleniu wszystkich cen i modułów.")
+
+    # --- Pobranie cen (domyślne lub własne) ---
+    cena_drewna_m3 = st.session_state.cena_drewna_m3 if st.session_state.use_wlasna_cena else 1600.0
+
+    # Ceny poszyć wewnętrznych
+    if st.session_state.posz_wew:
+        cena_welna_glowna = st.session_state.cena_welna_glowna if st.session_state.use_wlasna_cena_welna_glowna else 35.0
+        cena_welna_dod = st.session_state.cena_welna_dod if st.session_state.use_wlasna_cena_welna_dod else 25.0
+        cena_kantowki = st.session_state.cena_kantowki if st.session_state.use_wlasna_cena_kantowki else 6.0
+        cena_osb_wew = st.session_state.cena_osb_wew if st.session_state.use_wlasna_cena_osb_wew else 18.0
+        cena_gk = st.session_state.cena_gk if st.session_state.use_wlasna_cena_gk else 15.0
+        paro_opcje = {"Folia PE 0,2mm":3.5, "Folia PE 0,3mm":4.8, "Folia aluminiowa":8.2, "Membrana paroszczelna":6.5}
+        cena_paro = st.session_state.cena_paro if st.session_state.use_wlasna_cena_paro else paro_opcje[st.session_state.paroizolacja]
+    else:
+        cena_welna_glowna = cena_welna_dod = cena_kantowki = cena_osb_wew = cena_gk = cena_paro = 0.0
+
+    cena_osb_zew = st.session_state.cena_osb_zew if st.session_state.use_wlasna_cena_osb_zew else 18.0
+    cena_wiatro = st.session_state.cena_wiatro if st.session_state.use_wlasna_cena_wiatro else 8.0
+
+    # Ceny pokrycia dachowego (uproszczone, bez możliwości własnej ceny na razie)
+    ceny_pokrycia = {"Papa": 120, "Blachodachówka": 85, "Gont bitumiczny": 120, "EPDM": 90}  # za m² lub jednostkę
+
+    # ---------- OBLICZENIA ----------
+    m3_drewna = objetosc_drewna()
+    pow_netto = pow_scian_netto()
+    pow_dach = pow_dachu()
+
+    # Konstrukcja
+    koszt_drewno = m3_drewna * cena_drewna_m3
+
+    # Poszycia
+    if st.session_state.posz_wew:
+        # wełna główna
+        grub_map = {"95x45":100, "145x45":150, "195x45":200}
+        gr = grub_map[st.session_state.slupki]
+        pokrycie_map = {100:5.76, 150:4.32, 200:2.88}
+        paczki_gl = math.ceil(pow_netto / pokrycie_map[gr])
+        koszt_welna_gl = pow_netto * cena_welna_glowna
+        # dodatkowa wełna
+        if st.session_state.get('dodatkowa_izolacja', False):
+            paczki_dod = math.ceil(pow_netto / 8.64)
+            koszt_welna_dod = pow_netto * cena_welna_dod
+        else:
+            koszt_welna_dod = 0.0
+        # kantówki
+        rzedy = math.ceil(st.session_state.wys / 100 / 0.60) + 1
+        mb_kant = rzedy * obwod_scian()
+        koszt_kantowki = mb_kant * cena_kantowki
+        # OSB wewn
+        koszt_osb_wew = pow_netto * cena_osb_wew
+        # GK
+        koszt_gk = pow_netto * cena_gk
+        # paro
+        koszt_paro = pow_netto * cena_paro
+    else:
+        koszt_welna_gl = koszt_welna_dod = koszt_kantowki = koszt_osb_wew = koszt_gk = koszt_paro = 0.0
+
+    # Zewnętrzne
+    koszt_osb_zew = pow_netto * cena_osb_zew
+    koszt_wiatro = pow_netto * 1.1 * cena_wiatro
+
+    # Dach
+    if st.session_state.pokrycie == "Papa":
+        # uproszczony koszt papy
+        calk_m2 = pow_dach * 1.15
+        rolki = math.ceil(calk_m2 / (st.session_state.dlugosc_rolki_papa * st.session_state.szerokosc_rolki_papa))
+        koszt_pokrycia = rolki * 120 * 2  # podkładowa + wierzchnia
+        koszt_masa = pow_dach * 0.5 * 6  # 6 zł/kg
+        koszt_dach = koszt_pokrycia + koszt_masa
+    elif st.session_state.pokrycie == "Blachodachówka":
+        arkusze = math.ceil(pow_dach / 0.8)
+        koszt_dach = arkusze * 85  # orientacyjnie
+    elif st.session_state.pokrycie == "Gont bitumiczny":
+        opak = math.ceil(pow_dach / 3)
+        koszt_dach = opak * 120
+    else:  # EPDM
+        koszt_dach = pow_dach * 90  # membrana + klej
+
+    # Podłoga
+    koszt_podloga = 0.0
+    if st.session_state.technika_podlogi == "Ze stołem roboczym":
+        koszt_podloga = pow_podlogi() * 50  # orientacyjnie
+
+    # Akcesoria (stała kwota orientacyjna, uproszczona)
+    koszt_akcesoria = 150.0
+
+    # Suma
+    suma = (koszt_drewno + koszt_welna_gl + koszt_welna_dod + koszt_kantowki +
+            koszt_osb_wew + koszt_gk + koszt_paro + koszt_osb_zew + koszt_wiatro +
+            koszt_dach + koszt_podloga + koszt_akcesoria)
+
+    # ---------- WYŚWIETLENIE ----------
+    st.subheader("📋 Zestawienie kosztów")
+    st.markdown(f"""
+    | Kategoria | Koszt |
+    |-----------|-------|
+    | Drewno konstrukcyjne | **{koszt_drewno:.2f} zł** |
+    | Wełna główna | {koszt_welna_gl:.2f} zł |
+    | Dodatkowa wełna 5 cm | {koszt_welna_dod:.2f} zł |
+    | Kantówki | {koszt_kantowki:.2f} zł |
+    | OSB wewnętrzne | {koszt_osb_wew:.2f} zł |
+    | Płyty GK | {koszt_gk:.2f} zł |
+    | Paroizolacja | {koszt_paro:.2f} zł |
+    | OSB zewnętrzne | {koszt_osb_zew:.2f} zł |
+    | Wiatroizolacja | {koszt_wiatro:.2f} zł |
+    | Pokrycie dachu | **{koszt_dach:.2f} zł** |
+    | Podłoga | {koszt_podloga:.2f} zł |
+    | Akcesoria | {koszt_akcesoria:.2f} zł |
+    | **SUMA** | **{suma:.2f} zł** |
+    """)
+    st.info("Wartości orientacyjne. Własne ceny są uwzględnione tam, gdzie zostały wprowadzone.")
