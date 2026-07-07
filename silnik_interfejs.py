@@ -24,8 +24,8 @@ def init_state():
         'dlugosc_rolki_papa': 10.0,
         'szerokosc_rolki_papa': 1.0,
         'zaklad_papa': 0.10,
-        'dodatkowa_izolacja': False,
-        # ceny własne – inicjowane domyślnie
+        'dodatkowa_izolacja': False,   # <-- dodane
+        # ceny własne
         'cena_osb_wew': 18.0, 'cena_gk': 15.0, 'cena_paro': 3.5,
         'cena_welna_glowna': 35.0, 'cena_welna_dod': 25.0, 'cena_kantowki': 6.0,
         'cena_osb_zew': 18.0, 'cena_wiatro': 8.0,
@@ -43,7 +43,7 @@ def init_state():
 
 init_state()
 
-# ---------- FUNKCJE OBLICZENIOWE ----------
+# ---------- FUNKCJE ----------
 def pow_podlogi():
     return st.session_state.szer * st.session_state.dlug / 10_000
 
@@ -75,23 +75,17 @@ def dlugosc_listwy():
     return liczba_slupkow() * st.session_state.wys / 100
 
 def ile_desek(dlugosc_calkowita_m, dlugosc_handlowa_cm):
-    dl_handl_m = dlugosc_handlowa_cm / 100
-    return math.ceil(dlugosc_calkowita_m / dl_handl_m)
+    return math.ceil(dlugosc_calkowita_m / (dlugosc_handlowa_cm / 100))
 
 def objetosc_drewna():
-    przekroje = {
-        "95x45": 0.095 * 0.045,
-        "145x45": 0.145 * 0.045,
-        "195x45": 0.195 * 0.045
-    }
-    pole_m2 = przekroje[st.session_state.slupki]
-    return pole_m2 * dlugosc_listwy()
+    przekroje = {"95x45": 0.095*0.045, "145x45": 0.145*0.045, "195x45": 0.195*0.045}
+    pole = przekroje[st.session_state.slupki]
+    return pole * dlugosc_listwy()
 
 def pow_dachu():
     szer = st.session_state.szer + st.session_state.okap_lewo + st.session_state.okap_prawo
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
-    rzut = (szer * dlug) / 10_000
-    return rzut / math.cos(math.radians(st.session_state.kat))
+    return (szer * dlug) / 10_000 / math.cos(math.radians(st.session_state.kat))
 
 def nachylenie_procent():
     return math.tan(math.radians(st.session_state.kat)) * 100
@@ -103,6 +97,12 @@ def dlugosc_polaci():
 def liczba_krokwi():
     dl_cm = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     return math.ceil(dl_cm / st.session_state.get('rozstaw_dach', 60)) + 1
+
+def obwod_dachu():
+    """Obwód dachu w metrach (potrzebne do EPDM)"""
+    szer = st.session_state.szer + st.session_state.okap_lewo + st.session_state.okap_prawo
+    dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
+    return 2 * (szer + dlug) / 100
 
 # ---------- MENU ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
@@ -162,7 +162,6 @@ elif wybor == "Ściany":
         resztki = (sztuk * dl_handl_m - dl_calk) / (sztuk * dl_handl_m) * 100 if sztuk > 0 else 0
         m3 = objetosc_drewna()
 
-        # Tabelka markdown
         st.markdown(f"""
         | Parametr | Wartość |
         |----------|---------|
@@ -191,7 +190,7 @@ elif wybor == "Ściany":
             st.markdown("## Poszycie wewnętrzne")
             pow_netto = pow_scian_netto()
 
-            # 1. Izolacja główna (między słupkami) – zawsze
+            # 1. Izolacja główna
             grub_map = {"95x45":100, "145x45":150, "195x45":200}
             gr = grub_map[st.session_state.slupki]
             st.markdown(f"**Wełna Knauf Ecose {gr} mm**")
@@ -208,7 +207,7 @@ elif wybor == "Ściany":
             st.write(f"Powierzchnia: **{pow_netto:.1f} m²** → **{paczki} paczek** (razem {paczki*pokrycie_map[gr]:.1f} m²)")
             st.write(f"Koszt: **{pow_netto * cena:.2f} zł**")
 
-            # 2. Dodatkowa izolacja 5 cm – opcjonalna
+            # 2. Dodatkowa izolacja (opcja)
             if st.checkbox("Dodatkowa izolacja termiczna 5 cm", key='dodatkowa_izolacja'):
                 st.markdown("**Wełna 50 mm**")
                 paczki5 = math.ceil(pow_netto / 8.64)
@@ -223,9 +222,9 @@ elif wybor == "Ściany":
                 st.write(f"Powierzchnia: **{pow_netto:.1f} m²** → **{paczki5} paczek**")
                 st.write(f"Koszt: **{pow_netto * cena5:.2f} zł**")
 
-            # 3. Kantówki poziome (pod dodatkową izolację)
+            # 3. Kantówki
             st.markdown("**Kantówki 45x45 mm**")
-            rozstaw_kant = 0.60  # dla wełny 60 cm
+            rozstaw_kant = 0.60
             rzedy = math.ceil(st.session_state.wys / 100 / rozstaw_kant) + 1
             mb_kant = rzedy * obwod_scian()
             cena_kant_dom = 6.0
@@ -241,8 +240,7 @@ elif wybor == "Ściany":
 
             # 4. OSB wewn.
             st.markdown("**Płyta OSB-3 wewn.**")
-            grubosci = [8,9,10,12]
-            st.selectbox("Grubość (mm)", grubosci, key='osb_wew')
+            st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_wew')
             cena_osb_dom = 18.0
             col_a4, col_b4 = st.columns([1,2])
             own_osb = col_a4.checkbox("Własna cena", key='use_wlasna_cena_osb_wew')
@@ -282,7 +280,7 @@ elif wybor == "Ściany":
             st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
             st.write(f"Koszt: **{pow_netto * cena_paro:.2f} zł**")
 
-        # POSZYCIE ZEWNĘTRZNE
+        # Poszycie zewnętrzne
         st.markdown("## Poszycie zewnętrzne")
         pow_netto = pow_scian_netto()
         st.markdown("**Płyta OSB-3 zewn.**")
@@ -356,13 +354,13 @@ elif wybor == "Dach":
                 st.number_input("Szerokość rolki (m)", min_value=0.5, value=st.session_state.szerokosc_rolki_papa, key='szerokosc_rolki_papa')
             with col_p3:
                 st.number_input("Zakład (m)", min_value=0.05, value=st.session_state.zaklad_papa, step=0.01, key='zaklad_papa')
+
             szer_efekt = st.session_state.szerokosc_rolki_papa - st.session_state.zaklad_papa
             dl_polaci = dlugosc_polaci()
             liczba_pasow = math.ceil(dl_polaci / szer_efekt)
             pow_rolki = st.session_state.dlugosc_rolki_papa * st.session_state.szerokosc_rolki_papa
-            rolki_na_pas = math.ceil(pow_dach / pow_rolki) * liczba_pasow  # uproszczenie
+
             st.write(f"Efektywna szerokość: **{szer_efekt:.2f} m** → liczba pasów na połaci: **{liczba_pasow}**")
-            # Porada optymalizacyjna
             opt_okap = dl_polaci - liczba_pasow * szer_efekt
             if opt_okap > 0.01:
                 st.info(f"💡 Zmniejszając okap o **{opt_okap*100:.1f} cm**, idealnie wypełnisz {liczba_pasow} pasów, bez odpadów na szerokości.")
@@ -370,7 +368,7 @@ elif wybor == "Dach":
                 st.info(f"💡 Zwiększ okap o **{-opt_okap*100:.1f} cm**, aby pokryć dokładnie {liczba_pasow} pasów.")
             else:
                 st.success("✅ Okapy idealnie dopasowane – zero odpadów na szerokości papy.")
-            # Oszacowanie liczby rolek
+
             calkowite_m2 = pow_dach * 1.15
             rolki = math.ceil(calkowite_m2 / pow_rolki)
             st.write(f"**Papa podkładowa:** {rolki} rolki ({pow_rolki:.1f} m²/rolka)")
@@ -399,10 +397,12 @@ elif wybor == "Dach":
             st.write(f"**Gonty:** {math.ceil(pow_dach/3)} op.")
             st.write(f"**Masa bitumiczna:** {math.ceil(pow_dach/5)} tubek")
 
-        else:
+        else:  # EPDM
             st.subheader("EPDM")
-            st.write(f"**Membrana:** {pow_dach:.1f} m², **Klej:** {math.ceil(pow_dach/5)} l, **Primer:** {pow_dach*0.3:.1f} l")
-            st.write(f"**Taśma:** {math.ceil(obwod_dachu()/10)} rolek")  # wymaga funkcji
+            st.write(f"**Membrana:** {pow_dach:.1f} m²")
+            st.write(f"**Klej kontaktowy:** {math.ceil(pow_dach/5)} l")
+            st.write(f"**Primer:** {pow_dach*0.3:.1f} l")
+            st.write(f"**Taśma EPDM:** {math.ceil(obwod_dachu()/10)} rolek (10 m/rolka)")
 
 # ==================== PODŁOGA ====================
 elif wybor == "Podłoga":
@@ -423,7 +423,7 @@ elif wybor == "Akcesoria":
     pow_osb = pow_scian_netto()
     wkrety_osb = math.ceil(pow_osb * 25 * 1.15)
     op_osb = math.ceil(wkrety_osb / 200)
-    wkrety_gk = math.ceil(pow_osb * 20 * 1.15) if st.session_state.get('gk_wew',0)>0 else 0
+    wkrety_gk = math.ceil(pow_osb * 20 * 1.15) if st.session_state.get('gk_wew', 0) > 0 else 0
     op_gk = math.ceil(wkrety_gk / 1000) if wkrety_gk else 0
     wkr_cies = liczba_slupkow() * 4
     op_cies = math.ceil(wkr_cies / 100)
