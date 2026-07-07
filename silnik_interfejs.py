@@ -17,7 +17,8 @@ def init_state():
         'active_tab': 'Geometria',
         'cena_drewna_m3': 1600.0,
         'use_wlasna_cena': False,
-        'dach_podstrona': 'Konstrukcja dachu'
+        'dach_podstrona': 'Konstrukcja dachu',
+        'sciany_podstrona': 'Konstrukcja ścian'  # nowy klucz dla podstron
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -84,7 +85,7 @@ def pow_dachu():
 st.title("🏗️ Inżynier Szkieletowy Pro")
 st.caption("Wszystkie dane są współdzielone. Wybierz moduł poniżej.")
 
-zakladki = ["Geometria", "Konstrukcja ścian", "Wykończenie ścian", "Dach", "Podłoga", "Akcesoria", "Kosztorys"]
+zakladki = ["Geometria", "Ściany", "Dach", "Podłoga", "Akcesoria", "Kosztorys"]
 wybor = st.radio("", zakladki, key='active_tab', horizontal=True)
 
 # ==================== MODUŁY ====================
@@ -100,88 +101,91 @@ if wybor == "Geometria":
         st.metric("Powierzchnia podłogi", f"{pow_podlogi():.2f} m²")
         st.metric("Kubatura", f"{kubatura():.2f} m³")
         st.metric("Powierzchnia ścian (brutto)", f"{pow_scian_brutto():.2f} m²")
-    st.info("Otwory okienne i drzwiowe definiuje się w module **Konstrukcja ścian**.")
+    st.info("Otwory i konstrukcję ścian definiuje się w module **Ściany**.")
 
-elif wybor == "Konstrukcja ścian":
-    st.header("🏗️ Konstrukcja ścian")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"], key='slupki')
-        st.selectbox("Rozstaw słupków (cm)", [60, 120], key='rozstaw')
-    with col2:
-        st.number_input("Długość handlowa desek (cm)", 200, 1200, key='dlugosc_desek')
+elif wybor == "Ściany":
+    st.header("🧱 Ściany")
+    sciany_opcje = st.radio("", ["Konstrukcja ścian", "Wykończenie ścian"], key='sciany_podstrona', horizontal=True)
 
-    st.divider()
-    st.subheader("🚪 Otwory (drzwi i okna)")
-    for o in st.session_state.otwory:
-        oid = o['id']
-        cols = st.columns([2,2,2,1])
-        cols[0].text_input("Nazwa", o.get('nazwa',''), key=f"nazwa_{oid}")
-        cols[1].number_input("Szer (cm)", 30, 500, o.get('szer',100), key=f"szer_{oid}")
-        cols[2].number_input("Wys (cm)", 30, 500, o.get('wys',120), key=f"wys_{oid}")
-        if cols[3].button("❌", key=f"del_{oid}"):
-            st.session_state.otwory = [x for x in st.session_state.otwory if x['id'] != oid]
+    if sciany_opcje == "Konstrukcja ścian":
+        st.subheader("Materiał i rozstaw")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"], key='slupki')
+            st.selectbox("Rozstaw słupków (cm)", [60, 120], key='rozstaw')
+        with col2:
+            st.number_input("Długość handlowa desek (cm)", 200, 1200, key='dlugosc_desek')
+
+        st.divider()
+        st.subheader("🚪 Otwory (drzwi i okna)")
+        for o in st.session_state.otwory:
+            oid = o['id']
+            cols = st.columns([2,2,2,1])
+            cols[0].text_input("Nazwa", o.get('nazwa',''), key=f"nazwa_{oid}")
+            cols[1].number_input("Szer (cm)", 30, 500, o.get('szer',100), key=f"szer_{oid}")
+            cols[2].number_input("Wys (cm)", 30, 500, o.get('wys',120), key=f"wys_{oid}")
+            if cols[3].button("❌", key=f"del_{oid}"):
+                st.session_state.otwory = [x for x in st.session_state.otwory if x['id'] != oid]
+                st.rerun()
+        if st.button("➕ Dodaj otwór"):
+            new_id = str(uuid.uuid4())
+            st.session_state.otwory.append({
+                'id': new_id,
+                'nazwa': 'Okno',
+                'szer': 100,
+                'wys': 120
+            })
             st.rerun()
-    if st.button("➕ Dodaj otwór"):
-        new_id = str(uuid.uuid4())
-        st.session_state.otwory.append({
-            'id': new_id,
-            'nazwa': 'Okno',
-            'szer': 100,
-            'wys': 120
-        })
-        st.rerun()
 
-    st.divider()
-    st.subheader("Zapotrzebowanie na drewno")
-    n = liczba_slupkow()
-    dl_calk = dlugosc_listwy()
-    sztuk = ile_desek(dl_calk, st.session_state.dlugosc_desek)
-    dl_handl_m = st.session_state.dlugosc_desek / 100
-    resztki = (sztuk * dl_handl_m - dl_calk) / (sztuk * dl_handl_m) * 100 if sztuk > 0 else 0
-    m3 = objetosc_drewna()
+        st.divider()
+        st.subheader("Zapotrzebowanie na drewno")
+        n = liczba_slupkow()
+        dl_calk = dlugosc_listwy()
+        sztuk = ile_desek(dl_calk, st.session_state.dlugosc_desek)
+        dl_handl_m = st.session_state.dlugosc_desek / 100
+        resztki = (sztuk * dl_handl_m - dl_calk) / (sztuk * dl_handl_m) * 100 if sztuk > 0 else 0
+        m3 = objetosc_drewna()
 
-    row1_col1, row1_col2 = st.columns(2)
-    row1_col1.metric("Liczba słupków", n)
-    row1_col2.metric("Całkowita długość", f"{dl_calk:.2f} m")
-    row2_col1, row2_col2 = st.columns(2)
-    row2_col1.metric(f"Desek {st.session_state.dlugosc_desek} cm", sztuk)
-    row2_col2.metric("Procent resztek", f"{resztki:.1f} %")
-    st.metric("Objętość drewna", f"{m3:.3f} m³")
+        row1_col1, row1_col2 = st.columns(2)
+        row1_col1.metric("Liczba słupków", n)
+        row1_col2.metric("Całkowita długość", f"{dl_calk:.2f} m")
+        row2_col1, row2_col2 = st.columns(2)
+        row2_col1.metric(f"Desek {st.session_state.dlugosc_desek} cm", sztuk)
+        row2_col2.metric("Procent resztek", f"{resztki:.1f} %")
+        st.metric("Objętość drewna", f"{m3:.3f} m³")
 
-    st.divider()
-    st.subheader("Koszt drewna konstrukcyjnego")
-    use_wlasna = st.checkbox("Użyj własnej ceny za m³", key='use_wlasna_cena')
-    if use_wlasna:
-        st.number_input("Twoja cena za m³ (zł)", min_value=0.0, value=st.session_state.cena_drewna_m3, step=100.0, key='cena_drewna_m3')
-        koszt_drewna = m3 * st.session_state.cena_drewna_m3
-        st.write(f"**Koszt drewna (wg Twojej ceny):** {koszt_drewna:.2f} zł")
-    else:
-        koszt_drewna = m3 * 1600.0
-        st.write(f"**Koszt drewna (cena domyślna 1600 zł/m³):** {koszt_drewna:.2f} zł")
+        st.divider()
+        st.subheader("Koszt drewna konstrukcyjnego")
+        use_wlasna = st.checkbox("Użyj własnej ceny za m³", key='use_wlasna_cena')
+        if use_wlasna:
+            st.number_input("Twoja cena za m³ (zł)", min_value=0.0, value=st.session_state.cena_drewna_m3, step=100.0, key='cena_drewna_m3')
+            koszt_drewna = m3 * st.session_state.cena_drewna_m3
+            st.write(f"**Koszt drewna (wg Twojej ceny):** {koszt_drewna:.2f} zł")
+        else:
+            koszt_drewna = m3 * 1600.0
+            st.write(f"**Koszt drewna (cena domyślna 1600 zł/m³):** {koszt_drewna:.2f} zł")
 
-elif wybor == "Wykończenie ścian":
-    st.header("🧱 Wykończenie ścian")
-    st.subheader("Poszycie zewnętrzne")
-    st.number_input("Grubość OSB-3 zewn. (mm)", 8, 25, key='osb_zew')
-    wiatro_opcje = {"Membrana Standard 120g": 120, "Membrana Premium 160g": 160, "Folia wiatrochronna 100g": 100}
-    wybor_wiatro = st.selectbox("Wiatroizolacja", list(wiatro_opcje.keys()), key='wiatro')
-    pow_netto = pow_scian_netto()
-    pow_zapas = pow_netto * 1.1
-    st.write(f"Powierzchnia ścian netto: {pow_netto:.2f} m²")
-    st.write(f"Potrzebna wiatroizolacja (z 10% zapasem): {pow_zapas:.2f} m²")
+    else:  # Wykończenie ścian
+        st.subheader("Poszycie zewnętrzne")
+        st.number_input("Grubość OSB-3 zewn. (mm)", 8, 25, key='osb_zew')
+        wiatro_opcje = {"Membrana Standard 120g": 120, "Membrana Premium 160g": 160, "Folia wiatrochronna 100g": 100}
+        wybor_wiatro = st.selectbox("Wiatroizolacja", list(wiatro_opcje.keys()), key='wiatro')
+        pow_netto = pow_scian_netto()
+        pow_zapas = pow_netto * 1.1
+        st.write(f"Powierzchnia ścian netto: {pow_netto:.2f} m²")
+        st.write(f"Potrzebna wiatroizolacja (z 10% zapasem): {pow_zapas:.2f} m²")
 
-    st.subheader("Poszycie wewnętrzne (opcjonalne)")
-    if st.checkbox("Dodaj poszycie wewnętrzne", key='posz_wew'):
-        st.number_input("Płyta GK (mm)", 6, 25, key='gk_wew')
-        st.number_input("OSB-3 wewn. (mm, 0=pomiń)", 0, 25, key='osb_wew')
-        st.checkbox("Paroizolacja", True, key='paro')
+        st.subheader("Poszycie wewnętrzne (opcjonalne)")
+        if st.checkbox("Dodaj poszycie wewnętrzne", key='posz_wew'):
+            st.number_input("Płyta GK (mm)", 6, 25, key='gk_wew')
+            st.number_input("OSB-3 wewn. (mm, 0=pomiń)", 0, 25, key='osb_wew')
+            st.checkbox("Paroizolacja", True, key='paro')
 
-    st.subheader("Elewacja")
-    st.write("(Opcje wykończenia elewacji – deski, tynki itp. można dodać w przyszłości)")
+        st.subheader("Elewacja")
+        st.write("(Opcje wykończenia elewacji – deski, tynki itp. można dodać w przyszłości)")
 
-    st.subheader("Izolacja termiczna")
-    st.number_input("Grubość ocieplenia dachu (cm)", 5, 30, key='ocieplenie_dach')
+        st.subheader("Izolacja termiczna")
+        st.number_input("Grubość ocieplenia dachu (cm)", 5, 30, key='ocieplenie_dach')
 
 elif wybor == "Dach":
     st.header("🔺 Dach")
