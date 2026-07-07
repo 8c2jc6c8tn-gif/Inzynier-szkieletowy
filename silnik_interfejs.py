@@ -1,12 +1,15 @@
 import streamlit as st
 import math
 
+# Konfiguracja strony
 st.set_page_config(layout="wide")
 st.title("Inżynier Szkieletowy - Modułowy Pro")
 
-# --- Inicjalizacja ---
+# --- Inicjalizacja danych globalnych ---
 if 'okna' not in st.session_state:
     st.session_state.okna = []
+if 'geo' not in st.session_state:
+    st.session_state.geo = {'wys': 250, 'szer': 600, 'dlug': 800}
 
 # --- Zakładki ---
 tab_geo, tab_dach_konstr, tab_dach_wyk, tab_konstr_scian, tab_posz, tab_akc, tab_koszt = st.tabs([
@@ -17,17 +20,30 @@ tab_geo, tab_dach_konstr, tab_dach_wyk, tab_konstr_scian, tab_posz, tab_akc, tab
 with tab_geo:
     st.header("1. Wymiary Budynku")
     col1, col2 = st.columns(2)
-    wys = col1.number_input("Wysokość (cm)", 200, 500, 250, key="g_wys")
-    szer = col1.number_input("Szerokość (cm)", 200, 1000, 600, key="g_szer")
-    dlug = col1.number_input("Długość (cm)", 200, 1500, 800, key="g_dlug")
+    st.session_state.geo['wys'] = col1.number_input("Wysokość (cm)", 200, 500, st.session_state.geo['wys'])
+    st.session_state.geo['szer'] = col1.number_input("Szerokość (cm)", 200, 1000, st.session_state.geo['szer'])
+    st.session_state.geo['dlug'] = col1.number_input("Długość (cm)", 200, 1500, st.session_state.geo['dlug'])
     
-    # Obliczenia
-    pow_podlogi = (szer * dlug) / 10000
-    kubatura = pow_podlogi * (wys / 100)
+    st.subheader("Otwory (Okna i Drzwi)")
+    if st.button("Dodaj otwór", key="add_win"):
+        st.session_state.okna.append({'szer': 90, 'wys': 120})
+    
+    suma_otworow = 0
+    for i, okno in enumerate(st.session_state.okna):
+        c1, c2, c3 = st.columns([2, 2, 1])
+        okno['szer'] = c1.number_input(f"Szer. otworu {i+1} (cm)", value=okno['szer'], key=f"s_{i}")
+        okno['wys'] = c2.number_input(f"Wys. otworu {i+1} (cm)", value=okno['wys'], key=f"w_{i}")
+        suma_otworow += (okno['szer'] * okno['wys']) / 10000 
+        if c3.button("Usuń", key=f"del_{i}"):
+            st.session_state.okna.pop(i)
+            st.rerun()
+
+    pow_podlogi = (st.session_state.geo['szer'] * st.session_state.geo['dlug']) / 10000
+    pow_scian_netto = (((st.session_state.geo['szer'] + st.session_state.geo['dlug']) * 2) * (st.session_state.geo['wys'] / 100)) - suma_otworow
     
     st.divider()
     st.metric("Powierzchnia podłogi", f"{pow_podlogi:.2f} m²")
-    st.metric("Kubatura", f"{kubatura:.2f} m³")
+    st.metric("Powierzchnia ścian netto", f"{pow_scian_netto:.2f} m²")
 
 # --- MODUŁ 2: KONSTRUKCJA DACHU ---
 with tab_dach_konstr:
@@ -37,8 +53,7 @@ with tab_dach_konstr:
     okap_a = st.slider("Okap przód/tył (cm)", 0, 100, 20, key="d_okap_a")
     okap_c = st.slider("Okap lewo/prawo (cm)", 0, 100, 20, key="d_okap_c")
     
-    # Powierzchnia dachu
-    pow_dachu = ((szer + 2*okap_c) * (dlug + 2*okap_a) / 10000) / math.cos(math.radians(kat))
+    pow_dachu = (((st.session_state.geo['szer'] + 2*okap_c) * (st.session_state.geo['dlug'] + 2*okap_a)) / 10000) / math.cos(math.radians(kat))
     st.metric("Powierzchnia dachu", f"{pow_dachu:.2f} m²")
 
 # --- MODUŁ 3: WYKOŃCZENIE DACHU ---
@@ -49,26 +64,6 @@ with tab_dach_wyk:
 
 # --- Pasek boczny ---
 with st.sidebar:
-    st.header("Podsumowanie ogólne")
-    st.write("Wymiary budynku i dachu pobierane z zakładek.")
-    # Usunąłem tutaj odwołanie do zmiennych lokalnych, które powodowały błąd NameError
-
-# --- MODUŁ 3: POSZYCIA ---
-with tab_posz:
-    st.header("3. Poszycie i Izolacja")
-    st.checkbox("Poszycie wewnętrzne", key="posz_wew")
-
-# --- MODUŁ 4: AKCESORIA ---
-with tab_akc:
-    st.header("4. Akcesoria i Łączniki")
-    st.write("Wkręty Klimas, taśmy, kątowniki...")
-
-# --- MODUŁ 5: KOSZTORYS ---
-with tab_koszt:
-    st.header("5. Analiza Kosztów")
-    st.write("Tabela zbiorcza...")
-
-# --- Pasek boczny ---
-with st.sidebar:
     st.header("Podsumowanie")
-    st.metric("Powierzchnia ścian", f"{pow_scian_netto:.2f} m²")
+    st.metric("Ściany netto", f"{pow_scian_netto:.2f} m²")
+    st.metric("Dach", f"{pow_dachu:.2f} m²")
