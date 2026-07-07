@@ -10,30 +10,35 @@ if 'okna' not in st.session_state:
 import streamlit as st
 import math
 
-# ...
+st.set_page_config(layout="wide")
+st.title("Inżynier Szkieletowy - Moduł Geometrii")
 
-# --- 1. Moduł: Geometria (z poprawką na kąty) ---
+# --- MODUŁ 1: GEOMETRIA ---
 with st.sidebar:
-    st.header("1. Geometria")
+    st.header("1. Parametry Budynku")
     wys = st.slider("Wysokość (cm)", 200, 500, 250)
-    szer = st.slider("Wymiar szerokości (cm)", 200, 1000, 600)
-    dlug = st.slider("Wymiar długości (cm)", 200, 1500, 800)
+    szer = st.slider("Szerokość (cm)", 200, 1000, 600)
+    dlug = st.slider("Długość (cm)", 200, 1500, 800)
     
-    st.subheader("Dach i nachylenie")
-    kat_stopnie = st.slider("Kąt nachylenia dachu (°):", 0, 45, 20)
+    st.header("Dach")
+    kat_stopnie = st.slider("Kąt nachylenia (°):", 0, 45, 20)
     
-    # Obliczenie procentów
+    # Przelicznik
     kat_rad = math.radians(kat_stopnie)
     kat_procent = math.tan(kat_rad) * 100
     
-    # Wyświetlanie obok siebie
+    # Wyświetlanie wyników
     col1, col2 = st.columns(2)
     col1.metric("Kąt", f"{kat_stopnie}°")
     col2.metric("Pochylenie", f"{kat_procent:.1f}%")
     
-    st.info(f"Oznacza to spadek {math.tan(kat_rad):.2f} m na każdy 1 m w poziomie.")
+    st.info(f"Spadek: {math.tan(kat_rad):.2f} m na 1 m.")
 
-# ...
+# --- Główna część aplikacji ---
+st.write("Witaj w inżynierskim kalkulatorze. Jeśli widzisz ten tekst, to znaczy, że moduł geometrii działa poprawnie.")
+
+# Tu będziemy dodawać kolejne moduły (Materiały, Akcesoria itd.)
+
 
 # --- 2. Zakładki ---
 tab1, tab2, tab3, tab4 = st.tabs(["Konstrukcja", "Poszycia", "Akcesoria", "Kosztorys"])
