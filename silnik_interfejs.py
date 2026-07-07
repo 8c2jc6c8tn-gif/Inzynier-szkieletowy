@@ -225,7 +225,6 @@ elif wybor == "Ściany":
                 st.write(f"Powierzchnia: **{pow_netto:.1f} m²** → **{paczki5} paczek**")
                 st.write(f"Koszt: **{pow_netto * cena5:.2f} zł**")
 
-                # 3. Kantówki poziome – z suwakiem rozstawu
                 st.markdown(f"<h4 style='margin:0'>Kantówki 45x45 mm (poprzeczne)</h4>", unsafe_allow_html=True)
                 rozstaw = st.slider("Rozstaw kantówek (cm)", 30, 80, value=st.session_state.rozstaw_kantowek, key='rozstaw_kantowek')
                 rzedy = math.ceil(st.session_state.wys / 100 / (rozstaw/100)) + 1
@@ -240,9 +239,6 @@ elif wybor == "Ściany":
                     col_b3.write(f"Cena domyślna: {cena_kant_dom:.2f} zł/mb")
                 st.write(f"Długość: **{mb_kant:.1f} mb**")
                 st.write(f"Koszt: **{mb_kant * cena_k:.2f} zł**")
-            else:
-                # Gdy dodatkowa izolacja wyłączona, nadal można dodać kantówki? Nie, znikają.
-                pass
 
             # 4. OSB wewn.
             st.markdown(f"<h4 style='margin:0'>Płyta OSB-3 wewnętrzna</h4>", unsafe_allow_html=True)
@@ -345,7 +341,7 @@ elif wybor == "Dach":
         st.divider()
         st.markdown(f"<h3 style='text-align:center;'>Powierzchnia dachu: {pow_dachu():.2f} m²</h3>", unsafe_allow_html=True)
 
-    else:
+    else:  # Wykończenie dachu
         st.subheader("Wykończenie dachu")
         st.selectbox("Pokrycie", ["Papa", "Blachodachówka", "Gont bitumiczny", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
@@ -361,11 +357,6 @@ elif wybor == "Dach":
                 st.number_input("Szerokość (m)", min_value=0.5, value=st.session_state.szerokosc_rolki_papa_podklad, key='szerokosc_rolki_papa_podklad')
             with col_p3:
                 st.number_input("Zakład (m)", min_value=0.05, value=st.session_state.zaklad_papa_podklad, step=0.01, key='zaklad_papa_podklad')
-            pow_rolki_podklad = st.session_state.dlugosc_rolki_papa_podklad * st.session_state.szerokosc_rolki_papa_podklad
-            szer_efekt_podklad = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
-            dl_polaci = dlugosc_polaci()
-            liczba_pasow_podklad = math.ceil(dl_polaci / szer_efekt_podklad)
-            rolki_podklad = math.ceil(pow_dach * 1.15 / pow_rolki_podklad) * liczba_pasow_podklad  # orientacyjnie
 
             st.markdown("#### Parametry rolki – papa wierzchnia")
             col_w1, col_w2, col_w3 = st.columns(3)
@@ -375,26 +366,45 @@ elif wybor == "Dach":
                 st.number_input("Szerokość (m)", min_value=0.5, value=st.session_state.szerokosc_rolki_papa_wierzch, key='szerokosc_rolki_papa_wierzch')
             with col_w3:
                 st.number_input("Zakład (m)", min_value=0.05, value=st.session_state.zaklad_papa_wierzch, step=0.01, key='zaklad_papa_wierzch')
+
+            # Obliczenia liczby rolek
+            pow_rolki_podklad = st.session_state.dlugosc_rolki_papa_podklad * st.session_state.szerokosc_rolki_papa_podklad
+            szer_efekt_podklad = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
+            szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
+            liczba_pasow = math.ceil(szer_polaci / szer_efekt_podklad)
+            dl_pol = dlugosc_polaci()
+            laczna_dlugosc_pasow = 2 * liczba_pasow * dl_pol
+            rolki_podklad = math.ceil(laczna_dlugosc_pasow / st.session_state.dlugosc_rolki_papa_podklad)
+
             pow_rolki_wierzch = st.session_state.dlugosc_rolki_papa_wierzch * st.session_state.szerokosc_rolki_papa_wierzch
             szer_efekt_wierzch = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
-            liczba_pasow_wierzch = math.ceil(dl_polaci / szer_efekt_wierzch)
-            rolki_wierzch = math.ceil(pow_dach * 1.15 / pow_rolki_wierzch) * liczba_pasow_wierzch
+            liczba_pasow_w = math.ceil(szer_polaci / szer_efekt_wierzch)
+            laczna_dlugosc_pasow_w = 2 * liczba_pasow_w * dl_pol
+            rolki_wierzch = math.ceil(laczna_dlugosc_pasow_w / st.session_state.dlugosc_rolki_papa_wierzch)
 
-            st.write("**Podsumowanie papy:**")
-            st.write(f"- Papa podkładowa: **{rolki_podklad}** rolki (pow. rolki {pow_rolki_podklad:.1f} m², pasów: {liczba_pasow_podklad})")
-            st.write(f"- Papa wierzchnia: **{rolki_wierzch}** rolki (pow. rolki {pow_rolki_wierzch:.1f} m², pasów: {liczba_pasow_wierzch})")
+            st.write(f"**Papa podkładowa:** {rolki_podklad} rolki")
+            st.write(f"**Papa wierzchnia:** {rolki_wierzch} rolki")
 
-            # Porada optymalizacyjna (dla wierzchniej, bo zazwyczaj ona decyduje)
-            opt_okap_m = (liczba_pasow_wierzch * szer_efekt_wierzch) - dl_polaci
-            opt_okap_cm = opt_okap_m * 100
-            if abs(opt_okap_cm) < 0.1:
-                st.success("✅ Okapy idealnie dopasowane – zero odpadów na szerokości papy.")
-            elif opt_okap_m > 0:
-                # za dużo, można zmniejszyć okap
-                st.info(f"💡 Zmniejsz okap o **{opt_okap_cm:.1f} cm**, aby idealnie wykorzystać {liczba_pasow_wierzch} pasów papy wierzchniej.")
-            else:
-                # za mało, trzeba zwiększyć okap
-                st.info(f"💡 Zwiększ okap o **{-opt_okap_cm:.1f} cm**, aby dopasować do {liczba_pasow_wierzch} pełnych pasów.")
+            # Porada + przycisk optymalizacji okapów
+            # Sprawdzamy optymalną szerokość połaci dla wierzchniej (bo ona zwykle decyduje)
+            opt_szer_polaci = szer_polaci
+            if st.button("🎯 Dopasuj okapy dla optymalnego układu pasów"):
+                # obliczamy docelową szerokość połaci jako wielokrotność szer_efekt_wierzch
+                n = math.ceil(szer_polaci / szer_efekt_wierzch)
+                nowa_szer = n * szer_efekt_wierzch * 100  # w cm
+                obecna_szer = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl)
+                roznica = nowa_szer - obecna_szer
+                # Rozdzielamy różnicę równo na przód i tył
+                nowy_przod = st.session_state.okap_przod + roznica / 2
+                nowy_tyl = st.session_state.okap_tyl + roznica / 2
+                # Ograniczenie zakresu
+                if 0 <= nowy_przod <= 100 and 0 <= nowy_tyl <= 100:
+                    st.session_state.okap_przod = nowy_przod
+                    st.session_state.okap_tyl = nowy_tyl
+                    st.success(f"Ustawiono okap przód = {nowy_przod:.1f} cm, tył = {nowy_tyl:.1f} cm")
+                    st.experimental_rerun()
+                else:
+                    st.error("Nie można ustawić okapów – wartości poza zakresem. Spróbuj zmienić szerokość efektywną rolki lub kąt dachu.")
 
             masa_kg = pow_dach * 0.5
             st.write(f"**Masa bitumiczna:** ok. {masa_kg:.1f} kg ({math.ceil(masa_kg/5)} wiader 5 kg)")
@@ -483,106 +493,76 @@ elif wybor == "Akcesoria":
 # ==================== KOSZTORYS ====================
 elif wybor == "Kosztorys":
     st.header("📊 Kosztorys zbiorczy")
-
-    # --- Pobranie cen (domyślne lub własne) ---
+    # Ceny
     cena_drewna_m3 = st.session_state.cena_drewna_m3 if st.session_state.use_wlasna_cena else 1600.0
-
-    # Ceny poszyć wewnętrznych
     if st.session_state.posz_wew:
-        cena_welna_glowna = st.session_state.cena_welna_glowna if st.session_state.use_wlasna_cena_welna_glowna else 35.0
+        cena_welna_gl = st.session_state.cena_welna_glowna if st.session_state.use_wlasna_cena_welna_glowna else 35.0
         if st.session_state.get('dodatkowa_izolacja', False):
             cena_welna_dod = st.session_state.cena_welna_dod if st.session_state.use_wlasna_cena_welna_dod else 25.0
-            cena_kantowki = st.session_state.cena_kantowki if st.session_state.use_wlasna_cena_kantowki else 6.0
-            rozstaw_kant = st.session_state.get('rozstaw_kantowek', 60) / 100
+            cena_kant = st.session_state.cena_kantowki if st.session_state.use_wlasna_cena_kantowki else 6.0
+            rozstaw_kant = st.session_state.rozstaw_kantowek / 100
             rzedy = math.ceil(st.session_state.wys / 100 / rozstaw_kant) + 1
             mb_kant = rzedy * obwod_scian()
         else:
             cena_welna_dod = 0.0
-            cena_kantowki = 0.0
+            cena_kant = 0.0
             mb_kant = 0.0
         cena_osb_wew = st.session_state.cena_osb_wew if st.session_state.use_wlasna_cena_osb_wew else 18.0
         cena_gk = st.session_state.cena_gk if st.session_state.use_wlasna_cena_gk else 15.0
         paro_opcje = {"Folia PE 0,2mm":3.5, "Folia PE 0,3mm":4.8, "Folia aluminiowa":8.2, "Membrana paroszczelna":6.5}
         cena_paro = st.session_state.cena_paro if st.session_state.use_wlasna_cena_paro else paro_opcje[st.session_state.paroizolacja]
     else:
-        cena_welna_glowna = cena_welna_dod = cena_kantowki = cena_osb_wew = cena_gk = cena_paro = 0.0
+        cena_welna_gl = cena_welna_dod = cena_kant = cena_osb_wew = cena_gk = cena_paro = 0.0
         mb_kant = 0.0
 
     cena_osb_zew = st.session_state.cena_osb_zew if st.session_state.use_wlasna_cena_osb_zew else 18.0
     cena_wiatro = st.session_state.cena_wiatro if st.session_state.use_wlasna_cena_wiatro else 8.0
 
-    # --- Obliczenia ilości ---
+    # Ilości
     m3_drewna = objetosc_drewna()
     pow_netto = pow_scian_netto()
     pow_dach = pow_dachu()
 
-    # Drewno
     koszt_drewno = m3_drewna * cena_drewna_m3
-
-    # Poszycia wewn.
-    koszt_welna_gl = pow_netto * cena_welna_glowna if st.session_state.posz_wew else 0.0
-    if st.session_state.posz_wew and st.session_state.get('dodatkowa_izolacja', False):
-        koszt_welna_dod = pow_netto * cena_welna_dod
-        koszt_kantowki = mb_kant * cena_kantowki
-    else:
-        koszt_welna_dod = 0.0
-        koszt_kantowki = 0.0
+    koszt_welna_gl = pow_netto * cena_welna_gl if st.session_state.posz_wew else 0.0
+    koszt_welna_dod = pow_netto * cena_welna_dod if (st.session_state.posz_wew and st.session_state.get('dodatkowa_izolacja', False)) else 0.0
+    koszt_kantowki = mb_kant * cena_kant if (st.session_state.posz_wew and st.session_state.get('dodatkowa_izolacja', False)) else 0.0
     koszt_osb_wew = pow_netto * cena_osb_wew if st.session_state.posz_wew else 0.0
     koszt_gk = pow_netto * cena_gk if st.session_state.posz_wew else 0.0
     koszt_paro = pow_netto * cena_paro if st.session_state.posz_wew else 0.0
-
-    # Poszycia zewn.
     koszt_osb_zew = pow_netto * cena_osb_zew
     koszt_wiatro = pow_netto * 1.1 * cena_wiatro
 
     # Dach
     if st.session_state.pokrycie == "Papa":
-        # podkładowa
-        dlug_podkl = st.session_state.dlugosc_rolki_papa_podklad
-        szer_podkl = st.session_state.szerokosc_rolki_papa_podklad
-        zakl_podkl = st.session_state.zaklad_papa_podklad
-        pow_rolki_podkl = dlug_podkl * szer_podkl
-        szer_ef_podkl = szer_podkl - zakl_podkl
-        pasy_podkl = math.ceil(dlugosc_polaci() / szer_ef_podkl)
-        rolki_podkl = math.ceil(pow_dach * 1.15 / pow_rolki_podkl) * pasy_podkl
-        # wierzchnia
-        dlug_wierzch = st.session_state.dlugosc_rolki_papa_wierzch
-        szer_wierzch = st.session_state.szerokosc_rolki_papa_wierzch
-        zakl_wierzch = st.session_state.zaklad_papa_wierzch
-        pow_rolki_wierzch = dlug_wierzch * szer_wierzch
-        szer_ef_wierzch = szer_wierzch - zakl_wierzch
-        pasy_wierzch = math.ceil(dlugosc_polaci() / szer_ef_wierzch)
-        rolki_wierzch = math.ceil(pow_dach * 1.15 / pow_rolki_wierzch) * pasy_wierzch
-        cena_podkl = 120.0  # można by dać własne, ale uprośćmy
-        cena_wierzch = 130.0
-        koszt_papa_podkl = rolki_podkl * cena_podkl
-        koszt_papa_wierzch = rolki_wierzch * cena_wierzch
-        masa_kg = pow_dach * 0.5
-        koszt_masa = math.ceil(masa_kg/5) * 30  # wiadro 5 kg ~30 zł
-        koszt_dach = koszt_papa_podkl + koszt_papa_wierzch + koszt_masa
+        # liczenie jak w module
+        szer_pol = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
+        dl_pol = dlugosc_polaci()
+        # podkład
+        szer_ef_pod = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
+        pasy_pod = math.ceil(szer_pol / szer_ef_pod)
+        laczna_dl_pod = 2 * pasy_pod * dl_pol
+        rolki_pod = math.ceil(laczna_dl_pod / st.session_state.dlugosc_rolki_papa_podklad)
+        # wierzch
+        szer_ef_w = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
+        pasy_w = math.ceil(szer_pol / szer_ef_w)
+        laczna_dl_w = 2 * pasy_w * dl_pol
+        rolki_w = math.ceil(laczna_dl_w / st.session_state.dlugosc_rolki_papa_wierzch)
+        koszt_dach = rolki_pod * 120 + rolki_w * 130 + math.ceil(pow_dach * 0.5 / 5) * 30
     elif st.session_state.pokrycie == "Blachodachówka":
-        arkusze = math.ceil(pow_dach / 0.8)
-        koszt_dach = arkusze * 85
+        koszt_dach = math.ceil(pow_dach / 0.8) * 85
     elif st.session_state.pokrycie == "Gont bitumiczny":
-        opak = math.ceil(pow_dach / 3)
-        koszt_dach = opak * 120
-    else:  # EPDM
+        koszt_dach = math.ceil(pow_dach / 3) * 120
+    else:
         koszt_dach = pow_dach * 90
 
-    # Podłoga
-    if st.session_state.technika_podlogi == "Ze stołem roboczym":
-        koszt_podloga = pow_podlogi() * 50
-    else:
-        koszt_podloga = 0.0
-
-    # Akcesoria (stała orientacyjna)
-    koszt_akcesoria = 150.0
+    koszt_podloga = pow_podlogi() * 50 if st.session_state.technika_podlogi == "Ze stołem roboczym" else 0.0
+    koszt_akc = 150  # orientacyjnie
 
     suma = (koszt_drewno + koszt_welna_gl + koszt_welna_dod + koszt_kantowki +
             koszt_osb_wew + koszt_gk + koszt_paro + koszt_osb_zew + koszt_wiatro +
-            koszt_dach + koszt_podloga + koszt_akcesoria)
+            koszt_dach + koszt_podloga + koszt_akc)
 
-    st.subheader("📋 Zestawienie kosztów")
     tabela = f"""
 | Kategoria | Koszt |
 |-----------|-------|
@@ -597,8 +577,7 @@ elif wybor == "Kosztorys":
 | Wiatroizolacja | {koszt_wiatro:.2f} zł |
 | Pokrycie dachu | **{koszt_dach:.2f} zł** |
 | Podłoga | {koszt_podloga:.2f} zł |
-| Akcesoria | {koszt_akcesoria:.2f} zł |
+| Akcesoria | {koszt_akc:.2f} zł |
 | **SUMA** | **{suma:.2f} zł** |
 """
     st.markdown(tabela)
-    st.info("Wartości orientacyjne. Własne ceny są uwzględnione tam, gdzie zostały wprowadzone.")
