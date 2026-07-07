@@ -38,6 +38,11 @@ def init_state():
         'uzyj_osb_wew': True, 'uzyj_gk_wew': True,
         'poszycie_wew': False,
         'pokaz_wybor': False,
+        # Fundamenty
+        'fundament_grunt': 'Piasek średniozagęszczony',
+        'fundament_glebokosc': 100,
+        'fundament_srednica': 60,
+        'fundament_rozstaw': 150,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -108,7 +113,6 @@ def obwod_dachu():
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     return 2 * (szer + dlug) / 100
 
-# Callbacki do zapamiętania stanu checkboxów
 def update_poszycie_wew():
     st.session_state.poszycie_wew = st.session_state.poszycie_wew_widget
 
@@ -117,11 +121,9 @@ def update_dodatkowa_izolacja():
 
 # ---------- MENU ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
-zakladki = ["Geometria", "Ściany", "Dach", "Podłoga", "Akcesoria", "Kosztorys"]
-wybor = st.radio("", zakladki, key='active_tab', horizontal=True)
 
-# ==================== GEOMETRIA ====================
-if wybor == "Geometria":
+# ========== SŁOWNIK FUNKCJI (dodajemy nowe moduły TUTAJ) ==========
+def geometria_tab():
     st.header("📐 Geometria")
     c1, c2 = st.columns(2)
     with c1:
@@ -137,11 +139,9 @@ if wybor == "Geometria":
         st.metric("Kubatura", f"{kubatura():.2f} m³")
         st.metric("Pow. ścian brutto", f"{pow_scian_brutto():.2f} m²")
 
-# ==================== ŚCIANY ====================
-elif wybor == "Ściany":
+def sciany_tab():
     st.header("🧱 Ściany")
     sciany_opcje = st.radio("", ["Konstrukcja ścian", "Wykończenie ścian"], key='sciany_podstrona', horizontal=True)
-
     if sciany_opcje == "Konstrukcja ścian":
         st.subheader("Materiał i rozstaw")
         col1, col2 = st.columns(2)
@@ -151,7 +151,6 @@ elif wybor == "Ściany":
         with col2:
             dl_desek = st.slider("Dł. handlowa desek (cm)", 200, 1200, step=50, value=st.session_state.dlugosc_desek, key='dlugosc_desek_slider', on_change=lambda: st.session_state.update(dlugosc_desek=st.session_state.dlugosc_desek_slider))
             st.number_input("Dokładna długość (cm)", 200, 1200, value=st.session_state.dlugosc_desek, step=5, key='dlugosc_desek', on_change=lambda: st.session_state.update(dlugosc_desek_slider=st.session_state.dlugosc_desek))
-
         st.divider()
         st.subheader("🚪 Otwory")
         for o in st.session_state.otwory:
@@ -166,7 +165,6 @@ elif wybor == "Ściany":
         if st.button("➕ Dodaj otwór"):
             st.session_state.otwory.append({'id': str(uuid.uuid4()), 'nazwa':'Okno', 'szer':100, 'wys':120})
             st.rerun()
-
         st.divider()
         st.subheader("Zapotrzebowanie na drewno")
         n = liczba_slupkow()
@@ -175,7 +173,6 @@ elif wybor == "Ściany":
         dl_handl_m = st.session_state.dlugosc_desek / 100
         resztki = (sztuk * dl_handl_m - dl_calk) / (sztuk * dl_handl_m) * 100 if sztuk > 0 else 0
         m3 = objetosc_drewna()
-
         st.markdown(f"""
         | Parametr | Wartość |
         |----------|---------|
@@ -185,7 +182,6 @@ elif wybor == "Ściany":
         | Procent resztek | **{resztki:.1f} %** |
         | Objętość drewna | **{m3:.3f} m³** |
         """)
-
         st.subheader("Koszt drewna")
         use_wlasna = st.checkbox("Użyj własnej ceny za m³", key='use_wlasna_cena')
         if use_wlasna:
@@ -195,33 +191,15 @@ elif wybor == "Ściany":
         else:
             koszt = m3 * 1600.0
             st.write(f"Koszt (cena domyślna 1600 zł/m³): **{koszt:.2f} zł**")
-
-    else:  # Wykończenie ścian
+    else:
         st.markdown("<h2 style='text-align: center;'>Wykończenie ścian</h2>", unsafe_allow_html=True)
         pow_netto = pow_scian_netto()
-
-        # Poszycie wewnętrzne – oddzielone grubą szarą linią
         st.markdown("<hr style='border:2px solid #666; margin: 20px 0;'>", unsafe_allow_html=True)
-        
-        # Wyśrodkowany checkbox z callbackiem do zapamiętania stanu
-        st.markdown("""
-        <style>
-        div[data-testid="stCheckbox"] label {
-            font-size: 1.8em;
-            font-weight: bold;
-            display: flex;
-            justify-content: center;
-            width: 100%;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
+        st.markdown("""<style>div[data-testid="stCheckbox"] label {font-size:1.8em;font-weight:bold;display:flex;justify-content:center;width:100%;}</style>""", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1,2,1])
         with col2:
-            st.checkbox("Poszycie wewnętrzne", value=st.session_state.poszycie_wew, 
-                        key='poszycie_wew_widget', on_change=update_poszycie_wew)
-
+            st.checkbox("Poszycie wewnętrzne", value=st.session_state.poszycie_wew, key='poszycie_wew_widget', on_change=update_poszycie_wew)
         if st.session_state.poszycie_wew:
-            # 1. Wełna główna
             grub_map = {"95x45":100, "145x45":150, "195x45":200}
             gr = grub_map[st.session_state.slupki]
             st.markdown(f"<h3 style='margin:0'>Wełna Knauf Ecose {gr} mm</h3>", unsafe_allow_html=True)
@@ -238,12 +216,7 @@ elif wybor == "Ściany":
             st.write(f"Powierzchnia: **{pow_netto:.1f} m²** → **{paczki} paczek** (razem {paczki*pokrycie_map[gr]:.1f} m²)")
             st.write(f"Koszt: **{pow_netto * cena:.2f} zł**")
             st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
-            # 2. Dodatkowa izolacja (opcjonalna) – POPRAWIONE: callback i osobny klucz
-            st.checkbox("Dodatkowa izolacja termiczna 5 cm + kantówki", 
-                        value=st.session_state.dodatkowa_izolacja, 
-                        key='dodatkowa_izolacja_widget', 
-                        on_change=update_dodatkowa_izolacja)
+            st.checkbox("Dodatkowa izolacja termiczna 5 cm + kantówki", value=st.session_state.dodatkowa_izolacja, key='dodatkowa_izolacja_widget', on_change=update_dodatkowa_izolacja)
             if st.session_state.dodatkowa_izolacja:
                 st.markdown(f"<h3 style='margin:0'>Wełna Knauf Ecose 50 mm (dodatkowa)</h3>", unsafe_allow_html=True)
                 paczki5 = math.ceil(pow_netto / 8.64)
@@ -258,7 +231,6 @@ elif wybor == "Ściany":
                 st.write(f"Powierzchnia: **{pow_netto:.1f} m²** → **{paczki5} paczek**")
                 st.write(f"Koszt: **{pow_netto * cena5:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
                 st.markdown(f"<h3 style='margin:0'>Kantówki 45x45 mm (poprzeczne)</h3>", unsafe_allow_html=True)
                 rozstaw = st.slider("Rozstaw kantówek (cm)", 30, 80, step=5, value=st.session_state.rozstaw_kantowek, key='rozstaw_kantowek')
                 rzedy = math.ceil(st.session_state.wys / 100 / (rozstaw/100)) + 1
@@ -274,8 +246,6 @@ elif wybor == "Ściany":
                 st.write(f"Długość: **{mb_kant:.1f} mb**")
                 st.write(f"Koszt: **{mb_kant * cena_k:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
-            # 3. Paroizolacja (zawsze po izolacji, przed płytami)
             st.markdown(f"<h3 style='margin:0'>Paroizolacja</h3>", unsafe_allow_html=True)
             paro_opcje = {"Folia PE 0,2mm":3.5, "Folia PE 0,3mm":4.8, "Folia aluminiowa":8.2, "Membrana paroszczelna":6.5}
             wybor_paro = st.selectbox("Rodzaj", list(paro_opcje.keys()), key='paroizolacja')
@@ -290,8 +260,6 @@ elif wybor == "Ściany":
             st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
             st.write(f"Koszt: **{pow_netto * cena_paro:.2f} zł**")
             st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
-            # 4. OSB wewn. (opcjonalne)
             uzyj_osb = st.checkbox("Płyta OSB-3 wewnętrzna", value=st.session_state.uzyj_osb_wew, key='uzyj_osb_wew')
             if uzyj_osb:
                 st.markdown(f"<h3 style='margin:0'>Płyta OSB-3 wewnętrzna</h3>", unsafe_allow_html=True)
@@ -307,8 +275,6 @@ elif wybor == "Ściany":
                 st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
                 st.write(f"Koszt: **{pow_netto * cena_osb:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
-            # 5. Płyta GK (opcjonalna)
             uzyj_gk = st.checkbox("Płyta gipsowo-kartonowa 12,5 mm", value=st.session_state.uzyj_gk_wew, key='uzyj_gk_wew')
             if uzyj_gk:
                 st.markdown(f"<h3 style='margin:0'>Płyta gipsowo-kartonowa 12,5 mm</h3>", unsafe_allow_html=True)
@@ -323,12 +289,9 @@ elif wybor == "Ściany":
                 st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
                 st.write(f"Koszt: **{pow_netto * cena_gk:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
-        # Czerwona linia oddzielająca i poszycie zewnętrzne
         st.markdown("<hr style='border:2px solid #e74c3c; margin:25px 0;'>", unsafe_allow_html=True)
         st.markdown("<h2 style='text-align: center;'>Poszycie zewnętrzne</h2>", unsafe_allow_html=True)
         pow_netto = pow_scian_netto()
-
         st.markdown(f"<h3 style='margin:0'>Płyta OSB-3 zewnętrzna</h3>", unsafe_allow_html=True)
         st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_zew')
         cena_osb_zew_dom = 18.0
@@ -342,7 +305,6 @@ elif wybor == "Ściany":
         st.write(f"Powierzchnia: **{pow_netto:.1f} m²**")
         st.write(f"Koszt: **{pow_netto * cena_osz:.2f} zł**")
         st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
-
         st.markdown(f"<h3 style='margin:0'>Wiatroizolacja</h3>", unsafe_allow_html=True)
         wiatro_opcje = {"Membrana Standard 120g":120, "Membrana Premium 160g":160, "Folia wiatrochronna 100g":100}
         wybor_w = st.selectbox("Rodzaj", list(wiatro_opcje.keys()), key='wiatro')
@@ -358,16 +320,14 @@ elif wybor == "Ściany":
         st.write(f"Powierzchnia (z 10% zapasem): **{pow_zapas:.2f} m²**")
         st.write(f"Koszt: **{pow_zapas * cena_w:.2f} zł**")
 
-# ==================== DACH ====================
-elif wybor == "Dach":
+def dach_tab():
     st.header("🔺 Dach")
     dach_opcje = st.radio("", ["Konstrukcja dachu", "Wykończenie dachu"], key='dach_podstrona', horizontal=True)
-
     if dach_opcje == "Konstrukcja dachu":
         st.subheader("Rozstaw belek")
         st.selectbox("Rozstaw (cm)", [30,40,60], key='rozstaw_dach')
         st.subheader("Kąt nachylenia")
-        kat = st.slider("Kąt (°)", 0, 45, value=st.session_state.kat, key='kat')
+        st.slider("Kąt (°)", 0, 45, value=st.session_state.kat, key='kat')
         st.markdown(f"<h2 style='text-align:center; color:#e74c3c;'>{nachylenie_procent():.1f}%</h2>", unsafe_allow_html=True)
         st.subheader("Okapy")
         c1, c2 = st.columns(2)
@@ -379,14 +339,12 @@ elif wybor == "Dach":
             st.number_input("Prawo (cm)", 0, 100, value=st.session_state.okap_prawo, key='okap_prawo')
         st.divider()
         st.markdown(f"<h3 style='text-align:center;'>Powierzchnia dachu: {pow_dachu():.2f} m²</h3>", unsafe_allow_html=True)
-
-    else:  # Wykończenie dachu
+    else:
         st.subheader("Wykończenie dachu")
         st.selectbox("Pokrycie", ["Papa", "Blachodachówka", "Gont bitumiczny", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
         st.write(f"Powierzchnia do pokrycia: **{pow_dach:.2f} m²**")
         st.markdown("---")
-
         if st.session_state.pokrycie == "Papa":
             st.markdown("#### Papa podkładowa")
             col_p1, col_p2 = st.columns(2)
@@ -398,7 +356,6 @@ elif wybor == "Dach":
                 st.number_input("Dokładna szerokość (m)", 0.5, 2.0, value=st.session_state.szerokosc_rolki_papa_podklad, step=0.1, key='szerokosc_rolki_papa_podklad', on_change=lambda: st.session_state.update(szer_pod_slider=st.session_state.szerokosc_rolki_papa_podklad))
                 zakl_pod = st.slider("Zakład (m)", 0.05, 0.30, step=0.01, value=st.session_state.zaklad_papa_podklad, key='zakl_pod_slider', on_change=lambda: st.session_state.update(zaklad_papa_podklad=st.session_state.zakl_pod_slider))
                 st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=st.session_state.zaklad_papa_podklad, step=0.01, key='zaklad_papa_podklad', on_change=lambda: st.session_state.update(zakl_pod_slider=st.session_state.zaklad_papa_podklad))
-
             st.markdown("#### Papa wierzchnia")
             col_w1, col_w2 = st.columns(2)
             with col_w1:
@@ -409,7 +366,6 @@ elif wybor == "Dach":
                 st.number_input("Dokładna szerokość (m)", 0.5, 2.0, value=st.session_state.szerokosc_rolki_papa_wierzch, step=0.1, key='szerokosc_rolki_papa_wierzch', on_change=lambda: st.session_state.update(szer_w_slider=st.session_state.szerokosc_rolki_papa_wierzch))
                 zakl_w = st.slider("Zakład (m)", 0.05, 0.30, step=0.01, value=st.session_state.zaklad_papa_wierzch, key='zakl_w_slider', on_change=lambda: st.session_state.update(zaklad_papa_wierzch=st.session_state.zakl_w_slider))
                 st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=st.session_state.zaklad_papa_wierzch, step=0.01, key='zaklad_papa_wierzch', on_change=lambda: st.session_state.update(zakl_w_slider=st.session_state.zaklad_papa_wierzch))
-
             szer_efekt_w = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
             szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
             pasy_w = math.ceil(szer_polaci / szer_efekt_w)
@@ -438,7 +394,6 @@ elif wybor == "Dach":
                             if prawo: st.session_state.okap_prawo = max(0, min(100, st.session_state.okap_prawo + delta))
                             st.session_state.pokaz_wybor = False
                             st.rerun()
-            # Obliczenia rolek
             szer_efekt_pod = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
             pasy_pod = math.ceil(szer_polaci / szer_efekt_pod)
             laczna_dl_pod = 2 * pasy_pod * dlugosc_polaci()
@@ -447,7 +402,6 @@ elif wybor == "Dach":
             rolki_w = math.ceil(laczna_dl_w / st.session_state.dlugosc_rolki_papa_wierzch)
             st.write(f"**Papa podkładowa:** {rolki_pod} rolki")
             st.write(f"**Papa wierzchnia:** {rolki_w} rolki")
-
         elif st.session_state.pokrycie == "Blachodachówka":
             st.subheader("Blachodachówka")
             arkusze = math.ceil(pow_dach / 0.8)
@@ -462,13 +416,11 @@ elif wybor == "Dach":
             laty = math.ceil(dl_pol / 0.35 + 1) * szer_pol * 2
             st.write(f"**Kontrłaty:** {kontr:.1f} mb, **Łaty:** {laty:.1f} mb")
             st.write(f"**Wkręty farmerskie:** ok. {arkusze*8} szt.")
-
         elif st.session_state.pokrycie == "Gont bitumiczny":
             st.subheader("Gont bitumiczny")
             st.write(f"**Papa podkładowa:** {math.ceil(pow_dach*1.1/10)} rolek")
             st.write(f"**Gonty:** {math.ceil(pow_dach/3)} op.")
             st.write(f"**Masa bitumiczna:** {math.ceil(pow_dach/5)} tubek")
-
         else:
             st.subheader("EPDM")
             st.write(f"**Membrana:** {pow_dach:.1f} m²")
@@ -476,8 +428,7 @@ elif wybor == "Dach":
             st.write(f"**Primer:** {pow_dach*0.3:.1f} l")
             st.write(f"**Taśma EPDM:** {math.ceil(obwod_dachu()/10)} rolek (10 m/rolka)")
 
-# ==================== PODŁOGA ====================
-elif wybor == "Podłoga":
+def podloga_tab():
     st.header("🏠 Podłoga")
     st.radio("Technika", ["Standardowa","Ze stołem roboczym"], key='technika_podlogi')
     pow_p = pow_podlogi()
@@ -489,8 +440,7 @@ elif wybor == "Podłoga":
         ile_leg = math.ceil(dluz/60)+1
         st.write(f"**Legary:** {ile_leg*krot/100:.1f} mb ({ile_leg} szt.)")
 
-# ==================== AKCESORIA ====================
-elif wybor == "Akcesoria":
+def akcesoria_tab():
     st.header("🔩 Akcesoria")
     pow_osb = pow_scian_netto()
     wkrety_osb = math.ceil(pow_osb * 25 * 1.15)
@@ -502,25 +452,16 @@ elif wybor == "Akcesoria":
     mb_tasm = obwod_scian() * 2
     rolki_tasm = math.ceil(mb_tasm / 10)
     kat = liczba_slupkow() * 2
-
     html_tabela = f"""
     <table style="width:100%; border-collapse:collapse; color:white; background-color:#2c3e50;">
     <tr style="background:#1a252f; font-weight:bold;">
         <th>Produkt</th><th>Ilość</th><th>Opakowania</th><th>Cena jedn.</th><th>Koszt</th>
     </tr>
-    <tr>
-        <td>Wkręty OSB (Klimas 4,5x60)</td><td>{wkrety_osb} szt.</td><td>{op_osb} op. (200 szt.)</td><td>35 zł/op.</td><td>{op_osb*35:.0f} zł</td>
-    </tr>
+    <tr><td>Wkręty OSB (Klimas 4,5x60)</td><td>{wkrety_osb} szt.</td><td>{op_osb} op. (200 szt.)</td><td>35 zł/op.</td><td>{op_osb*35:.0f} zł</td></tr>
     {f'<tr><td>Wkręty GK (Klimas 3,5x25)</td><td>{wkrety_gk} szt.</td><td>{op_gk} op. (1000 szt.)</td><td>20 zł/op.</td><td>{op_gk*20:.0f} zł</td></tr>' if wkrety_gk else ''}
-    <tr>
-        <td>Wkręty ciesielskie (6x80)</td><td>{wkr_cies} szt.</td><td>{op_cies} op. (100 szt.)</td><td>45 zł/op.</td><td>{op_cies*45:.0f} zł</td>
-    </tr>
-    <tr>
-        <td>Taśma butylowa</td><td>{mb_tasm:.1f} mb</td><td>{rolki_tasm} rolki (10 m)</td><td>25 zł/rolka</td><td>{rolki_tasm*25:.0f} zł</td>
-    </tr>
-    <tr>
-        <td>Kątowniki 60x60x40</td><td>{kat} szt.</td><td>-</td><td>3,5 zł/szt.</td><td>{kat*3.5:.0f} zł</td>
-    </tr>
+    <tr><td>Wkręty ciesielskie (6x80)</td><td>{wkr_cies} szt.</td><td>{op_cies} op. (100 szt.)</td><td>45 zł/op.</td><td>{op_cies*45:.0f} zł</td></tr>
+    <tr><td>Taśma butylowa</td><td>{mb_tasm:.1f} mb</td><td>{rolki_tasm} rolki (10 m)</td><td>25 zł/rolka</td><td>{rolki_tasm*25:.0f} zł</td></tr>
+    <tr><td>Kątowniki 60x60x40</td><td>{kat} szt.</td><td>-</td><td>3,5 zł/szt.</td><td>{kat*3.5:.0f} zł</td></tr>
     </table>
     """
     st.markdown(html_tabela, unsafe_allow_html=True)
@@ -529,8 +470,7 @@ elif wybor == "Akcesoria":
         op_farm = math.ceil(wkr_farm / 250)
         st.markdown(f"**Wkręty farmerskie:** {wkr_farm} szt. → {op_farm} op. × 55 zł = {op_farm*55:.0f} zł")
 
-# ==================== KOSZTORYS ====================
-elif wybor == "Kosztorys":
+def kosztorys_tab():
     st.header("📊 Kosztorys zbiorczy")
     cena_drewna_m3 = st.session_state.cena_drewna_m3 if st.session_state.use_wlasna_cena else 1600.0
     poszycie_wew_active = st.session_state.poszycie_wew
@@ -543,9 +483,7 @@ elif wybor == "Kosztorys":
             rzedy = math.ceil(st.session_state.wys / 100 / rozstaw_kant) + 1
             mb_kant = rzedy * obwod_scian()
         else:
-            cena_welna_dod = 0.0
-            cena_kant = 0.0
-            mb_kant = 0.0
+            cena_welna_dod = 0.0; cena_kant = 0.0; mb_kant = 0.0
         cena_osb_wew = st.session_state.cena_osb_wew if st.session_state.use_wlasna_cena_osb_wew else 18.0
         cena_gk = st.session_state.cena_gk if st.session_state.use_wlasna_cena_gk else 15.0
         paro_opcje = {"Folia PE 0,2mm":3.5, "Folia PE 0,3mm":4.8, "Folia aluminiowa":8.2, "Membrana paroszczelna":6.5}
@@ -553,14 +491,11 @@ elif wybor == "Kosztorys":
     else:
         cena_welna_gl = cena_welna_dod = cena_kant = cena_osb_wew = cena_gk = cena_paro = 0.0
         mb_kant = 0.0
-
     cena_osb_zew = st.session_state.cena_osb_zew if st.session_state.use_wlasna_cena_osb_zew else 18.0
     cena_wiatro = st.session_state.cena_wiatro if st.session_state.use_wlasna_cena_wiatro else 8.0
-
     m3_drewna = objetosc_drewna()
     pow_netto = pow_scian_netto()
     pow_dach = pow_dachu()
-
     koszt_drewno = m3_drewna * cena_drewna_m3
     koszt_welna_gl = pow_netto * cena_welna_gl if poszycie_wew_active else 0.0
     koszt_welna_dod = pow_netto * cena_welna_dod if (poszycie_wew_active and st.session_state.dodatkowa_izolacja) else 0.0
@@ -570,8 +505,6 @@ elif wybor == "Kosztorys":
     koszt_paro = pow_netto * cena_paro if poszycie_wew_active else 0.0
     koszt_osb_zew = pow_netto * cena_osb_zew
     koszt_wiatro = pow_netto * 1.1 * cena_wiatro
-
-    # Dach
     if st.session_state.pokrycie == "Papa":
         szer_pol = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
         dl_pol = dlugosc_polaci()
@@ -590,14 +523,9 @@ elif wybor == "Kosztorys":
         koszt_dach = math.ceil(pow_dach / 3) * 120
     else:
         koszt_dach = pow_dach * 90
-
     koszt_podloga = pow_podlogi() * 50 if st.session_state.technika_podlogi == "Ze stołem roboczym" else 0.0
     koszt_akc = 150
-
-    suma = (koszt_drewno + koszt_welna_gl + koszt_welna_dod + koszt_kantowki +
-            koszt_osb_wew + koszt_gk + koszt_paro + koszt_osb_zew + koszt_wiatro +
-            koszt_dach + koszt_podloga + koszt_akc)
-
+    suma = (koszt_drewno + koszt_welna_gl + koszt_welna_dod + koszt_kantowki + koszt_osb_wew + koszt_gk + koszt_paro + koszt_osb_zew + koszt_wiatro + koszt_dach + koszt_podloga + koszt_akc)
     st.markdown(f"""
 | Kategoria | Koszt |
 |-----------|-------|
@@ -615,3 +543,158 @@ elif wybor == "Kosztorys":
 | Akcesoria | {koszt_akc:.2f} zł |
 | **SUMA** | **{suma:.2f} zł** |
 """)
+
+# ========== NOWY MODUŁ: FUNDAMENTY ==========
+def fundamenty_tab():
+    st.header("🏛️ Fundamenty – słupki betonowe")
+    
+    # Automatyczne pobranie wymiarów
+    szer_m = st.session_state.szer / 100
+    dlug_m = st.session_state.dlug / 100
+    obwod_m = obwod_scian()
+    
+    st.info(f"📐 Automatycznie pobrano wymiary budynku: **{szer_m:.2f} × {dlug_m:.2f} m** (obwód: {obwod_m:.1f} m)")
+    
+    # Oszacowanie obciążenia całkowitego
+    pow_dach = pow_dachu()
+    ciezar_dach = pow_dach * 0.8  # kN/m² – lekki dach
+    ciezar_scian = obwod_m * st.session_state.wys / 100 * 0.5  # kN
+    ciezar_stropu = pow_podlogi() * 0.6  # kN
+    obciazenie_snieg = pow_dach * 0.7  # kN/m² (strefa 2)
+    calkowite_kn = ciezar_dach + ciezar_scian + ciezar_stropu + obciazenie_snieg
+    
+    st.markdown("---")
+    
+    # Wybór gruntu
+    st.subheader("🔍 Rodzaj podłoża")
+    grunty = {
+        "Piasek luźny": 100,
+        "Piasek średniozagęszczony": 200,
+        "Piasek zagęszczony": 350,
+        "Piasek gliniasty": 150,
+        "Glina plastyczna": 100,
+        "Glina twardoplastyczna": 200,
+        "Żwir zagęszczony": 400,
+        "Posadzka skalista": 500,
+    }
+    wybrany_grunt = st.selectbox("Wybierz rodzaj gruntu", list(grunty.keys()), key='fundament_grunt')
+    nosnosc_gruntu_kpa = grunty[wybrany_grunt]
+    
+    # Instrukcja badania gruntu
+    with st.expander("🧪 Jak sprawdzić rodzaj gruntu? (test butelkowy)"):
+        st.markdown("""
+        **Test butelkowy – prosta metoda dla każdego:**
+        1. Weź garść ziemi z głębokości ok. **80–100 cm** (poniżej warstwy humusu).
+        2. Wsyp do przezroczystej butelki (np. 0,5 l) do ok. ⅓ wysokości.
+        3. Dolej wody do ¾ butelki i mocno wstrząśnij przez 1 minutę.
+        4. Odstaw na 24 godziny – ziemia opadnie warstwami.
+        
+        **Jak odczytać wynik:**
+        - **Piasek**: szybko opada, woda nad osadem jest prawie przejrzysta.
+        - **Glina**: woda długo pozostaje mętna, osad jest zbity i tłusty w dotyku.
+        - **Piasek gliniasty**: drobne cząstki długo się utrzymują w wodzie, na dnie warstwa piasku.
+        
+        Dla budownictwa szkieletowego **najlepsze są piaski i żwiry** – gliny wymagają większych słupków.
+        """)
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        glebokosc_cm = st.slider("Głębokość słupka (cm)", 60, 150, value=st.session_state.fundament_glebokosc, step=5, key='fundament_glebokosc')
+    with col_f2:
+        srednica_mm = st.slider("Średnica słupka (mm)", 40, 200, value=st.session_state.fundament_srednica, step=10, key='fundament_srednica')
+    
+    rozstaw_cm = st.slider("Rozstaw słupków (cm)", 80, 250, value=st.session_state.fundament_rozstaw, step=10, key='fundament_rozstaw')
+    
+    # Obliczenia nośności wg Eurokodu 7 (uproszczone)
+    ile_slupkow = math.ceil(obwod_m * 100 / rozstaw_cm) + 4  # +4 narożniki
+    obciazenie_na_slupek_kn = calkowite_kn / ile_slupkow
+    
+    # Nośność podstawy słupka: R = A * q_f
+    srednica_m = srednica_mm / 1000
+    pole_podstawy_m2 = math.pi * (srednica_m / 2) ** 2
+    nosnosc_gruntu_kpa = grunty[wybrany_grunt]  # kPa → kN/m²
+    nosnosc_podstawy_kn = pole_podstawy_m2 * nosnosc_gruntu_kpa
+    
+    # Nośność pobocznicy (tarcie): uproszczone – 10% nośności podstawy na każde 10 cm głębokości
+    glebokosc_m = glebokosc_cm / 100
+    obwod_slupka_m = math.pi * srednica_m
+    powierzchnia_boczna_m2 = obwod_slupka_m * glebokosc_m
+    tarcie_kn = powierzchnia_boczna_m2 * nosnosc_gruntu_kpa * 0.1  # współczynnik tarcia
+    
+    nosnosc_calkowita_kn = nosnosc_podstawy_kn + tarcie_kn
+    
+    # Współczynnik bezpieczeństwa
+    wspolczynnik_bezp = 2.0  # wg Eurokodu 7 dla fundamentów bezpośrednich
+    nosnosc_dopuszczalna_kn = nosnosc_calkowita_kn / wspolczynnik_bezp
+    
+    zapas_procent = ((nosnosc_dopuszczalna_kn / obciazenie_na_slupek_kn) - 1) * 100 if obciazenie_na_slupek_kn > 0 else 999
+    
+    # Szacowanie ryzyka wyboczenia (uproszczone – Euler)
+    # Długość wyboczeniowa = 2 * głębokość (wspornik)
+    dl_wyboczeniowa_m = 2 * glebokosc_m
+    promien_bewladnosci_m = srednica_m / 4  # dla przekroju kołowego
+    smuklosc = dl_wyboczeniowa_m / promien_bewladnosci_m if promien_bewladnosci_m > 0 else 0
+    szansa_wyboczenia = max(0, min(100, (smuklosc - 50) * 2))  # % – orientacyjnie
+    
+    # Wyniki
+    st.markdown("---")
+    st.subheader("📊 Wyniki obliczeń")
+    
+    col_w1, col_w2, col_w3 = st.columns(3)
+    col_w1.metric("Liczba słupków", f"{ile_slupkow} szt.")
+    col_w2.metric("Obciążenie na słupek", f"{obciazenie_na_slupek_kn:.2f} kN")
+    col_w3.metric("Nośność dopuszczalna", f"{nosnosc_dopuszczalna_kn:.2f} kN")
+    
+    col_w4, col_w5, col_w6 = st.columns(3)
+    col_w4.metric("Zapas nośności", f"{zapas_procent:.0f} %")
+    col_w5.metric("Smukłość słupka", f"{smuklosc:.0f}")
+    col_w6.metric("Szansa wyboczenia", f"{szansa_wyboczenia:.0f} %")
+    
+    # Wizualna ocena
+    st.markdown("---")
+    if zapas_procent > 50:
+        st.success(f"✅ **Słupek przewymiarowany** – zapas {zapas_procent:.0f}%. Możesz zmniejszyć średnicę lub zwiększyć rozstaw.")
+    elif zapas_procent > 10:
+        st.info(f"ℹ️ **Optymalnie** – zapas {zapas_procent:.0f}%. Konstrukcja bezpieczna i ekonomiczna.")
+    elif zapas_procent > 0:
+        st.warning(f"⚠️ **Na granicy** – zapas tylko {zapas_procent:.0f}%. Rozważ zwiększenie średnicy lub zagęszczenie słupków.")
+    else:
+        st.error(f"❌ **Niewystarczająca nośność!** – brakuje {-zapas_procent:.0f}%. Zwiększ średnicę lub głębokość słupka.")
+    
+    # Propozycja optymalna
+    st.markdown("---")
+    st.subheader("💡 Propozycja optymalnego rozwiązania")
+    
+    # Szukamy minimalnej średnicy dającej zapas > 20%
+    for proponowana_srednica in range(40, 200, 10):
+        sr_m = proponowana_srednica / 1000
+        pole = math.pi * (sr_m / 2) ** 2
+        obw_sl = math.pi * sr_m
+        pow_boczna = obw_sl * glebokosc_m
+        tarcie_opt = pow_boczna * nosnosc_gruntu_kpa * 0.1
+        nosnosc_opt = (pole * nosnosc_gruntu_kpa + tarcie_opt) / wspolczynnik_bezp
+        if nosnosc_opt > obciazenie_na_slupek_kn * 1.2:
+            st.success(f"✅ Dla gruntu **{wybrany_grunt}** zalecana średnica: **{proponowana_srednica} mm** (zapas > 20%)")
+            st.write(f"- Głębokość: **{glebokosc_cm} cm**")
+            st.write(f"- Rozstaw: **{rozstaw_cm} cm**")
+            st.write(f"- Ilość słupków: **{ile_slupkow} szt.**")
+            beton_m3 = ile_slupkow * pole * glebokosc_m
+            st.write(f"- Szacunkowa ilość betonu: **{beton_m3:.2f} m³**")
+            break
+    
+    st.caption("Obliczenia wg Eurokodu 7 (PN-EN 1997) – uproszczone. Dla dokładnych wyników skonsultuj się z konstruktorem.")
+
+# ========== SŁOWNIK ZAKŁADEK (dodajemy nowe TUTAJ) ==========
+zakladki_funkcje = {
+    "Geometria": geometria_tab,
+    "Ściany": sciany_tab,
+    "Dach": dach_tab,
+    "Podłoga": podloga_tab,
+    "Akcesoria": akcesoria_tab,
+    "Kosztorys": kosztorys_tab,
+    "🏛️ Fundamenty": fundamenty_tab,   # <-- NOWA ZAKŁADKA
+}
+
+# ========== GŁÓWNA PĘTLA ==========
+wybor = st.radio("", list(zakladki_funkcje.keys()), key='active_tab', horizontal=True)
+zakladki_funkcje[wybor]()
