@@ -53,7 +53,6 @@ with tab_geo:
             st.session_state.okna.pop(i)
             st.rerun()
 
-    # Obliczenia netto
     obwod = (szer + dlug) * 2 / 100
     pow_scian_brutto = obwod * (wys / 100)
     pow_scian_netto = pow_scian_brutto - suma_otworow
@@ -62,55 +61,28 @@ with tab_geo:
     st.metric("Powierzchnia ścian netto", f"{pow_scian_netto:.2f} m²")
 
 # --- MODUŁ 2: KONSTRUKCJA ---
-# --- MODUŁ 2: KONSTRUKCJA ---
 with tab_konstr:
     st.header("2. Konstrukcja")
-    rodzaj_drewna = st.selectbox(
-        "Przekrój słupków", 
-        ["95x45", "145x45", "195x45"], 
-        key="konstr_drewno"
-    )
-    dlugosc_desek = st.number_input(
-        "Długość desek (m)", 
-        value=5.0, 
-        key="konstr_dlugosc"
-    )
-    procent_odpadu = st.slider(
-        "Procent resztek/odpadu (%)", 
-        0, 30, 15, 
-        key="konstr_odpad"
-    )
+    rodzaj_drewna = st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"], key="konstr_drewno")
+    dlugosc_desek = st.number_input("Długość desek (m)", value=5.0, key="konstr_dlugosc")
+    procent_odpadu = st.slider("Procent resztek/odpadu (%)", 0, 30, 15, key="konstr_odpad")
 
-# --- Pozostałe moduły (puste dla zachowania struktury) ---
-with tab_posz: st.write("Moduł w przygotowaniu...")
-with tab_akc: st.write("Moduł w przygotowaniu...")
-with tab_koszt: st.write("Moduł w przygotowaniu...")
-
-# --- 2. Zakładka: Konstrukcja ---
-with tab_konstr:
-    st.header("Konstrukcja")
-    rodzaj_drewna = st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"])
-    dlugosc_desek = st.number_input("Dostępne długości desek (m)", value=5.0)
-    procent_odpadu = st.slider("Procent resztek/odpadu (%)", 0, 30, 15)
-
-# --- 3. Zakładka: Poszycia ---
+# --- MODUŁ 3: POSZYCIA ---
 with tab_posz:
-    st.header("Poszycie i Izolacja")
-    st.checkbox("Poszycie wewnętrzne")
+    st.header("3. Poszycie i Izolacja")
+    st.checkbox("Poszycie wewnętrzne", key="posz_wew")
 
-# --- 4. Zakładka: Akcesoria ---
+# --- MODUŁ 4: AKCESORIA ---
 with tab_akc:
-    st.header("Akcesoria i Łączniki")
+    st.header("4. Akcesoria i Łączniki")
     st.write("Wkręty Klimas, taśmy, kątowniki...")
 
-# --- 5. Zakładka: Kosztorys ---
+# --- MODUŁ 5: KOSZTORYS ---
 with tab_koszt:
-    st.header("Analiza Kosztów")
+    st.header("5. Analiza Kosztów")
     st.write("Tabela zbiorcza...")
 
-# --- Pasek boczny (dane wyliczone) ---
+# --- Pasek boczny ---
 with st.sidebar:
-    st.header("Podsumowanie obliczeń")
-    obw_scian = (szer + dlug) * 2
-    pow_scian = (obw_scian * wys) / 10000 
-    st.metric("Powierzchnia ścian", f"{pow_scian:.2f} m²")
+    st.header("Podsumowanie")
+    st.metric("Powierzchnia ścian", f"{pow_scian_netto:.2f} m²")
