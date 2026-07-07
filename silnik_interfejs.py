@@ -108,6 +108,10 @@ def obwod_dachu():
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     return 2 * (szer + dlug) / 100
 
+# Callback do zapamiętania stanu checkboxa
+def update_poszycie_wew():
+    st.session_state.poszycie_wew = st.session_state.poszycie_wew_widget
+
 # ---------- MENU ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
 zakladki = ["Geometria", "Ściany", "Dach", "Podłoga", "Akcesoria", "Kosztorys"]
@@ -196,7 +200,7 @@ elif wybor == "Ściany":
         # Poszycie wewnętrzne – oddzielone grubą szarą linią
         st.markdown("<hr style='border:2px solid #666; margin: 20px 0;'>", unsafe_allow_html=True)
         
-        # Wyśrodkowany checkbox z powiększoną czcionką (styl CSS)
+        # Wyśrodkowany checkbox z callbackiem do zapamiętania stanu
         st.markdown("""
         <style>
         div[data-testid="stCheckbox"] label {
@@ -210,7 +214,8 @@ elif wybor == "Ściany":
         """, unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.checkbox("Poszycie wewnętrzne", value=st.session_state.poszycie_wew, key='poszycie_wew')
+            st.checkbox("Poszycie wewnętrzne", value=st.session_state.poszycie_wew, 
+                        key='poszycie_wew_widget', on_change=update_poszycie_wew)
 
         # Linia diagnostyczna (możesz usunąć po testach)
         st.caption(f"DEBUG: poszycie_wew = {st.session_state.poszycie_wew}")
