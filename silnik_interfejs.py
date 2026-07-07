@@ -1,7 +1,6 @@
 import streamlit as st
 import math
 import uuid
-from datetime import date
 
 st.set_page_config(layout="wide", page_title="Inżynier Szkieletowy Pro")
 
@@ -16,8 +15,9 @@ def init_state():
         'osb_zew': 12, 'osb_wew': 0, 'gk_wew': 12.5,
         'ocieplenie_dach': 15, 'podloga_podwojna': False,
         'active_tab': 'Geometria',
-        'cena_drewna_m3': 1600.0,   # domyślna cena za m³
-        'dach_podstrona': 'Konstrukcja'  # radio w module Dach
+        'cena_drewna_m3': 1600.0,
+        'use_wlasna_cena': False,
+        'dach_podstrona': 'Konstrukcja'
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -65,7 +65,6 @@ def ile_desek(dlugosc_calkowita_m, dlugosc_handlowa_cm):
     return math.ceil(dlugosc_calkowita_m / dl_handl_m)
 
 def objetosc_drewna():
-    """Objętość drewna konstrukcyjnego w m³"""
     przekroje = {
         "95x45": 0.095 * 0.045,
         "145x45": 0.145 * 0.045,
@@ -109,7 +108,7 @@ elif wybor == "Konstrukcja ścian":
     col1, col2 = st.columns(2)
     with col1:
         st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"], key='slupki')
-        st.selectbox("Rozstaw słupków (cm)", [30, 40, 60], key='rozstaw')
+        st.selectbox("Rozstaw słupków (cm)", [60, 120], key='rozstaw')
     with col2:
         st.number_input("Długość handlowa desek (cm)", 200, 1200, key='dlugosc_desek')
 
@@ -143,19 +142,23 @@ elif wybor == "Konstrukcja ścian":
     resztki = (sztuk * dl_handl_m - dl_calk) / (sztuk * dl_handl_m) * 100 if sztuk > 0 else 0
     m3 = objetosc_drewna()
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Liczba słupków", n)
-    c2.metric("Całkowita długość", f"{dl_calk:.2f} m")
-    c3.metric(f"Desek {st.session_state.dlugosc_desek} cm", sztuk)
-    st.metric("Procent resztek", f"{resztki:.1f} %")
+    row1_col1, row1_col2 = st.columns(2)
+    row1_col1.metric("Liczba słupków", n)
+    row1_col2.metric("Całkowita długość", f"{dl_calk:.2f} m")
+    row2_col1, row2_col2 = st.columns(2)
+    row2_col1.metric(f"Desek {st.session_state.dlugosc_desek} cm", sztuk)
+    row2_col2.metric("Procent resztek", f"{resztki:.1f} %")
     st.metric("Objętość drewna", f"{m3:.3f} m³")
 
     st.divider()
     st.subheader("Koszt drewna konstrukcyjnego")
-    st.write(f"**Domyślna cena za m³:** {st.session_state.cena_drewna_m3:.2f} zł")
-    st.write(f"Orientacyjny koszt całkowity: **{m3 * st.session_state.cena_drewna_m3:.2f} zł**")
-    st.number_input("Twoja cena za m³ drewna (zł)", min_value=0.0, value=st.session_state.cena_drewna_m3, step=100.0, key='cena_drewna_m3')
-    st.caption("Wpisz aktualną cenę rynkową – zostanie użyta w kosztorysie.")
+    use_wlasna = st.checkbox("Użyj własnej ceny za m³", key='use_wlasna_cena')
+    if use_wlasna:
+        st.number_input("Twoja cena za m³ (zł)", min_value=0.0, value=st.session_state.cena_drewna_m3, step=100.0, key='cena_drewna_m3')
+        koszt_drewna = m3 * st.session_state.cena_drewna_m3
+    else:
+        koszt_drewna = m3 * 1600.0
+    st.write(f"Koszt drewna: **{koszt_drewna:.2f} zł** (wg {'Twojej' if use_wlasna else 'domyślnej'} ceny)")
 
 elif wybor == "Wykończenie ścian":
     st.header("🧱 Wykończenie ścian")
@@ -204,7 +207,7 @@ elif wybor == "Dach":
         st.subheader("Podsumowanie")
         st.metric("Całkowita powierzchnia dachu", f"{pow_dachu():.2f} m²")
 
-    else:  # Wykończenie dachu
+    else:
         st.subheader("Wykończenie pokrycia dachowego")
         st.selectbox("Rodzaj pokrycia", ["Papa", "Blachodachówka", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
@@ -213,15 +216,15 @@ elif wybor == "Dach":
         st.subheader("Lista materiałów")
 
         if st.session_state.pokrycie == "Papa":
-            rolki = math.ceil(pow_dach / 2)  # 1 rolka = 2 m²
-            cena_rolka = 120.0  # przykładowa cena za rolkę
+            rolki = math.ceil(pow_dach / 2)
+            cena_rolka = 120.0
             st.write(f"- Papa termozgrzewalna: **{rolki} rolek** (2 m²/rolka)")
             st.write(f"  Potrzebna ilość: {rolki * 2:.1f} m²")
             st.write(f"  Cena jednostkowa: {cena_rolka:.2f} zł/rolka")
             st.write(f"  Koszt papy: **{rolki * cena_rolka:.2f} zł**")
             st.write("- Podkład, gaz, akcesoria – doliczane ręcznie.")
         elif st.session_state.pokrycie == "Blachodachówka":
-            arkusze = math.ceil(pow_dach / 0.8)  # 1 arkusz = 0.8 m²
+            arkusze = math.ceil(pow_dach / 0.8)
             cena_arkusz = 85.0
             st.write(f"- Blachodachówka: **{arkusze} arkuszy** (0.8 m²/ark.)")
             st.write(f"  Potrzebna ilość: {arkusze * 0.8:.1f} m²")
@@ -262,8 +265,13 @@ elif wybor == "Akcesoria":
 
 elif wybor == "Kosztorys":
     st.header("📊 Kosztorys zbiorczy")
+    if st.session_state.get('use_wlasna_cena', False):
+        cena_drewna = st.session_state.get('cena_drewna_m3', 1600.0)
+    else:
+        cena_drewna = 1600.0
+
     CENY = {
-        'Drewno m3': st.session_state.cena_drewna_m3,
+        'Drewno m3': cena_drewna,
         'OSB-3': 18.0, 'GK': 15.0,
         'Wiatroizolacja': 8.0, 'Paroizolacja': 5.0,
         'Ocieplenie dach': 40.0,
