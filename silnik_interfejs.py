@@ -13,21 +13,13 @@ def init_state():
         'otwory': [], 'dlugosc_desek': 600,
         'osb_zew': 12, 'osb_wew': 0, 'gk_wew': 12.5,
         'ocieplenie_dach': 15, 'podloga_podwojna': False,
-        'section': 'geometria',
-        'house_svg': None   # do odbioru kliknięć
+        'section': 'geometria'
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
 init_state()
-
-# ---------- OBSŁUGA KLIKNIĘĆ Z SVG ----------
-# Jeśli komponent house_svg zwrócił wartość, przepisujemy ją do section
-if st.session_state.house_svg is not None:
-    st.session_state.section = st.session_state.house_svg
-    # czyścimy, aby nie zapętlić
-    st.session_state.house_svg = None
 
 # ---------- FUNKCJE OBLICZENIOWE ----------
 def pow_podlogi():
@@ -117,9 +109,13 @@ html_code = """
 </script>
 """
 
-st.components.v1.html(html_code, height=350, key="house_svg")
+# Odczyt kliknięcia z komponentu HTML
+clicked_section = st.components.v1.html(html_code, height=350)
 
-# Dodatkowe przyciski dla modułów nie na domku (opcjonalnie)
+if clicked_section:
+    st.session_state.section = clicked_section
+
+# Dodatkowe przyciski dla modułów spoza domku
 col1, col2 = st.columns(2)
 with col1:
     if st.button("🔩 AKCESORIA"):
