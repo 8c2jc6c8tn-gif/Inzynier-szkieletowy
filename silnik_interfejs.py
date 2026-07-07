@@ -107,6 +107,16 @@ def obwod_dachu():
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     return 2 * (szer + dlug) / 100
 
+# Callbacki do synchronizacji okapów (dach)
+def update_okap_przod():
+    st.session_state.okap_przod = st.session_state.dach_okap_przod
+def update_okap_tyl():
+    st.session_state.okap_tyl = st.session_state.dach_okap_tyl
+def update_okap_lewo():
+    st.session_state.okap_lewo = st.session_state.dach_okap_lewo
+def update_okap_prawo():
+    st.session_state.okap_prawo = st.session_state.dach_okap_prawo
+
 # ---------- MENU ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
 zakladki = ["Geometria", "Ściany", "Dach", "Podłoga", "Akcesoria", "Kosztorys"]
@@ -192,7 +202,6 @@ elif wybor == "Ściany":
         st.subheader("🧵 Wykończenie ścian")
         pow_netto = pow_scian_netto()
 
-        # Checkbox dla całego poszycia wewnętrznego
         if st.checkbox("Poszycie wewnętrzne", key='poszycie_wew'):
             st.markdown("### Poszycie wewnętrzne")
 
@@ -328,7 +337,7 @@ elif wybor == "Ściany":
         st.write(f"Powierzchnia (z 10% zapasem): **{pow_zapas:.2f} m²**")
         st.write(f"Koszt: **{pow_zapas * cena_w:.2f} zł**")
 
-# ==================== DACH (z unikalnymi kluczami sliderów) ====================
+# ==================== DACH ====================
 elif wybor == "Dach":
     st.header("🔺 Dach")
     dach_opcje = st.radio("", ["Konstrukcja dachu", "Wykończenie dachu"], key='dach_podstrona', horizontal=True)
@@ -337,26 +346,26 @@ elif wybor == "Dach":
         st.subheader("Rozstaw belek")
         st.selectbox("Rozstaw (cm)", [30,40,60], key='rozstaw_dach')
         st.subheader("Kąt nachylenia")
-        st.slider("Kąt (°)", 0, 45, value=st.session_state.kat, key='kat')
+        kat = st.slider("Kąt (°)", 0, 45, value=st.session_state.kat, key='kat')
         st.markdown(f"<h2 style='text-align:center; color:#e74c3c;'>{nachylenie_procent():.1f}%</h2>", unsafe_allow_html=True)
         st.subheader("Okapy")
         c1, c2 = st.columns(2)
         with c1:
-            st.slider("Przód (cm)", 0, 100, value=st.session_state.okap_przod, key='dach_okap_przod', on_change=lambda: st.session_state.update(okap_przod=st.session_state.dach_okap_przod))
-            st.slider("Lewo (cm)", 0, 100, value=st.session_state.okap_lewo, key='dach_okap_lewo', on_change=lambda: st.session_state.update(okap_lewo=st.session_state.dach_okap_lewo))
+            st.slider("Przód (cm)", 0, 100, value=st.session_state.okap_przod, key='dach_okap_przod', on_change=update_okap_przod)
+            st.slider("Lewo (cm)", 0, 100, value=st.session_state.okap_lewo, key='dach_okap_lewo', on_change=update_okap_lewo)
         with c2:
-            st.slider("Tył (cm)", 0, 100, value=st.session_state.okap_tyl, key='dach_okap_tyl', on_change=lambda: st.session_state.update(okap_tyl=st.session_state.dach_okap_tyl))
-            st.slider("Prawo (cm)", 0, 100, value=st.session_state.okap_prawo, key='dach_okap_prawo', on_change=lambda: st.session_state.update(okap_prawo=st.session_state.dach_okap_prawo))
+            st.slider("Tył (cm)", 0, 100, value=st.session_state.okap_tyl, key='dach_okap_tyl', on_change=update_okap_tyl)
+            st.slider("Prawo (cm)", 0, 100, value=st.session_state.okap_prawo, key='dach_okap_prawo', on_change=update_okap_prawo)
         st.divider()
         st.markdown(f"<h3 style='text-align:center;'>Powierzchnia dachu: {pow_dachu():.2f} m²</h3>", unsafe_allow_html=True)
 
-    else:  # Wykończenie dachu (reszta bez zmian)
+    else:  # Wykończenie dachu
         st.subheader("Wykończenie dachu")
         st.selectbox("Pokrycie", ["Papa", "Blachodachówka", "Gont bitumiczny", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
         st.write(f"Powierzchnia do pokrycia: **{pow_dach:.2f} m²**")
         st.markdown("---")
-        # ... (pozostałe opcje pozostają bez zmian – kod jest za długi, ale nie był ruszany)
+
         if st.session_state.pokrycie == "Papa":
             st.markdown("#### Papa podkładowa")
             col_p1, col_p2 = st.columns(2)
@@ -380,8 +389,10 @@ elif wybor == "Dach":
                 zakl_w = st.slider("Zakład (m)", 0.05, 0.30, step=0.01, value=st.session_state.zaklad_papa_wierzch, key='zakl_w_slider', on_change=lambda: st.session_state.update(zaklad_papa_wierzch=st.session_state.zakl_w_slider))
                 st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=st.session_state.zaklad_papa_wierzch, step=0.01, key='zaklad_papa_wierzch', on_change=lambda: st.session_state.update(zakl_w_slider=st.session_state.zaklad_papa_wierzch))
 
+            # Obliczenia
             szer_efekt_w = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
             szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
+            dl_pol = dlugosc_polaci()
             pasy_w = math.ceil(szer_polaci / szer_efekt_w)
             opt_szer = pasy_w * szer_efekt_w
             roznica = opt_szer - szer_polaci
@@ -408,8 +419,42 @@ elif wybor == "Dach":
                             if prawo: st.session_state.okap_prawo = max(0, min(100, st.session_state.okap_prawo + delta))
                             st.session_state.pokaz_wybor = False
                             st.rerun()
-        else:
-            st.write("Materiały dla " + st.session_state.pokrycie)
+            # Reszta papy...
+            pasy_pod = math.ceil(szer_polaci / (st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad))
+            laczna_dl_pod = 2 * pasy_pod * dl_pol
+            rolki_pod = math.ceil(laczna_dl_pod / st.session_state.dlugosc_rolki_papa_podklad)
+            laczna_dl_w = 2 * pasy_w * dl_pol
+            rolki_w = math.ceil(laczna_dl_w / st.session_state.dlugosc_rolki_papa_wierzch)
+            st.write(f"**Papa podkładowa:** {rolki_pod} rolki")
+            st.write(f"**Papa wierzchnia:** {rolki_w} rolki")
+
+        elif st.session_state.pokrycie == "Blachodachówka":
+            st.subheader("Blachodachówka")
+            arkusze = math.ceil(pow_dach / 0.8)
+            st.write(f"**Arkusze:** {arkusze} szt.")
+            st.selectbox("Wiatroizolacja", ["Membrana Standard 120g","Membrana Premium 160g"], key='wiatro_dach')
+            rolki_w = math.ceil(pow_dach * 1.1 / 50)
+            st.write(f"**Wiatroizolacja:** {rolki_w} rolek")
+            l_kr = liczba_krokwi()
+            dl_pol = dlugosc_polaci()
+            szer_pol = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl)/100
+            kontr = l_kr * dl_pol * 2
+            laty = math.ceil(dl_pol / 0.35 + 1) * szer_pol * 2
+            st.write(f"**Kontrłaty:** {kontr:.1f} mb, **Łaty:** {laty:.1f} mb")
+            st.write(f"**Wkręty farmerskie:** ok. {arkusze*8} szt.")
+
+        elif st.session_state.pokrycie == "Gont bitumiczny":
+            st.subheader("Gont bitumiczny")
+            st.write(f"**Papa podkładowa:** {math.ceil(pow_dach*1.1/10)} rolek")
+            st.write(f"**Gonty:** {math.ceil(pow_dach/3)} op.")
+            st.write(f"**Masa bitumiczna:** {math.ceil(pow_dach/5)} tubek")
+
+        else:  # EPDM
+            st.subheader("EPDM")
+            st.write(f"**Membrana:** {pow_dach:.1f} m²")
+            st.write(f"**Klej kontaktowy:** {math.ceil(pow_dach/5)} l")
+            st.write(f"**Primer:** {pow_dach*0.3:.1f} l")
+            st.write(f"**Taśma EPDM:** {math.ceil(obwod_dachu()/10)} rolek (10 m/rolka)")
 
 # ==================== PODŁOGA ====================
 elif wybor == "Podłoga":
@@ -505,11 +550,25 @@ elif wybor == "Kosztorys":
     koszt_osb_zew = pow_netto * cena_osb_zew
     koszt_wiatro = pow_netto * 1.1 * cena_wiatro
 
-    # Dach – uproszczony (reszta kodowa pozostała bez zmian)
+    # Dach
     if st.session_state.pokrycie == "Papa":
-        koszt_dach = 1000.0  # placeholder, bo i tak trzeba go liczyć – ale nie zmieniamy
+        szer_pol = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
+        dl_pol = dlugosc_polaci()
+        szer_ef_pod = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
+        pasy_pod = math.ceil(szer_pol / szer_ef_pod)
+        laczna_dl_pod = 2 * pasy_pod * dl_pol
+        rolki_pod = math.ceil(laczna_dl_pod / st.session_state.dlugosc_rolki_papa_podklad)
+        szer_ef_w = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
+        pasy_w = math.ceil(szer_pol / szer_ef_w)
+        laczna_dl_w = 2 * pasy_w * dl_pol
+        rolki_w = math.ceil(laczna_dl_w / st.session_state.dlugosc_rolki_papa_wierzch)
+        koszt_dach = rolki_pod * 120 + rolki_w * 130 + math.ceil(pow_dach * 0.5 / 5) * 30
+    elif st.session_state.pokrycie == "Blachodachówka":
+        koszt_dach = math.ceil(pow_dach / 0.8) * 85
+    elif st.session_state.pokrycie == "Gont bitumiczny":
+        koszt_dach = math.ceil(pow_dach / 3) * 120
     else:
-        koszt_dach = 0.0
+        koszt_dach = pow_dach * 90
 
     koszt_podloga = pow_podlogi() * 50 if st.session_state.technika_podlogi == "Ze stołem roboczym" else 0.0
     koszt_akc = 150
