@@ -138,7 +138,10 @@ elif wybor == "Ściany":
             st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"], key='slupki')
             st.selectbox("Rozstaw słupków (cm)", [60, 120], key='rozstaw')
         with col2:
-            st.number_input("Dł. handlowa desek (cm)", 200, 1200, key='dlugosc_desek')
+            # Suwak + number_input dla długości handlowej desek
+            dl_desek = st.slider("Dł. handlowa desek (cm) – szybki wybór", 200, 1200, step=100, value=st.session_state.dlugosc_desek, key='dlugosc_desek_slider')
+            st.session_state.dlugosc_desek = dl_desek
+            st.number_input("Dokładna długość (cm)", 200, 1200, value=dl_desek, key='dlugosc_desek')
 
         st.divider()
         st.subheader("🚪 Otwory")
@@ -242,7 +245,7 @@ elif wybor == "Ściany":
 
             # 4. OSB wewn.
             st.markdown(f"<h4 style='margin:0'>Płyta OSB-3 wewnętrzna</h4>", unsafe_allow_html=True)
-            st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_wew')
+            gr_osb = st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_wew')
             cena_osb_dom = 18.0
             col_a4, col_b4 = st.columns([1,2])
             own_osb = col_a4.checkbox("Własna cena", key='use_wlasna_cena_osb_wew')
@@ -287,7 +290,7 @@ elif wybor == "Ściany":
         st.markdown("### Poszycie zewnętrzne")
         pow_netto = pow_scian_netto()
         st.markdown(f"<h4 style='margin:0'>Płyta OSB-3 zewnętrzna</h4>", unsafe_allow_html=True)
-        st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_zew')
+        gr_osb_zew = st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_zew')
         cena_osb_zew_dom = 18.0
         col_az, col_bz = st.columns([1,2])
         own_osz = col_az.checkbox("Własna cena", key='use_wlasna_cena_osb_zew')
@@ -352,22 +355,28 @@ elif wybor == "Dach":
             st.markdown("#### Parametry rolki – papa podkładowa")
             col_p1, col_p2, col_p3 = st.columns(3)
             with col_p1:
-                st.number_input("Długość (m)", min_value=5.0, value=st.session_state.dlugosc_rolki_papa_podklad, key='dlugosc_rolki_papa_podklad')
+                dl_pod_slider = st.slider("Długość (m) – szybki wybór", 5, 20, step=1, value=int(st.session_state.dlugosc_rolki_papa_podklad), key='dl_pod_slider')
+                st.number_input("Dokładna długość (m)", 5.0, 20.0, value=float(dl_pod_slider), key='dlugosc_rolki_papa_podklad')
             with col_p2:
-                st.number_input("Szerokość (m)", min_value=0.5, value=st.session_state.szerokosc_rolki_papa_podklad, key='szerokosc_rolki_papa_podklad')
+                szer_pod_slider = st.slider("Szerokość (m) – szybki wybór", 0.5, 2.0, step=0.1, value=float(st.session_state.szerokosc_rolki_papa_podklad), key='szer_pod_slider')
+                st.number_input("Dokładna szerokość (m)", 0.5, 2.0, value=szer_pod_slider, key='szerokosc_rolki_papa_podklad')
             with col_p3:
-                st.number_input("Zakład (m)", min_value=0.05, value=st.session_state.zaklad_papa_podklad, step=0.01, key='zaklad_papa_podklad')
+                zakl_pod_slider = st.slider("Zakład (m) – szybki wybór", 0.05, 0.30, step=0.01, value=float(st.session_state.zaklad_papa_podklad), key='zakl_pod_slider')
+                st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=zakl_pod_slider, step=0.01, key='zaklad_papa_podklad')
 
             st.markdown("#### Parametry rolki – papa wierzchnia")
             col_w1, col_w2, col_w3 = st.columns(3)
             with col_w1:
-                st.number_input("Długość (m)", min_value=5.0, value=st.session_state.dlugosc_rolki_papa_wierzch, key='dlugosc_rolki_papa_wierzch')
+                dl_w_slider = st.slider("Długość (m) – szybki wybór", 5, 20, step=1, value=int(st.session_state.dlugosc_rolki_papa_wierzch), key='dl_w_slider')
+                st.number_input("Dokładna długość (m)", 5.0, 20.0, value=float(dl_w_slider), key='dlugosc_rolki_papa_wierzch')
             with col_w2:
-                st.number_input("Szerokość (m)", min_value=0.5, value=st.session_state.szerokosc_rolki_papa_wierzch, key='szerokosc_rolki_papa_wierzch')
+                szer_w_slider = st.slider("Szerokość (m) – szybki wybór", 0.5, 2.0, step=0.1, value=float(st.session_state.szerokosc_rolki_papa_wierzch), key='szer_w_slider')
+                st.number_input("Dokładna szerokość (m)", 0.5, 2.0, value=szer_w_slider, key='szerokosc_rolki_papa_wierzch')
             with col_w3:
-                st.number_input("Zakład (m)", min_value=0.05, value=st.session_state.zaklad_papa_wierzch, step=0.01, key='zaklad_papa_wierzch')
+                zakl_w_slider = st.slider("Zakład (m) – szybki wybór", 0.05, 0.30, step=0.01, value=float(st.session_state.zaklad_papa_wierzch), key='zakl_w_slider')
+                st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=zakl_w_slider, step=0.01, key='zaklad_papa_wierzch')
 
-            # Obliczenia liczby rolek
+            # Obliczenia
             pow_rolki_podklad = st.session_state.dlugosc_rolki_papa_podklad * st.session_state.szerokosc_rolki_papa_podklad
             szer_efekt_podklad = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
             szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
@@ -386,23 +395,19 @@ elif wybor == "Dach":
             st.write(f"**Papa wierzchnia:** {rolki_wierzch} rolki")
 
             # Porada + przycisk optymalizacji okapów
-            # Sprawdzamy optymalną szerokość połaci dla wierzchniej (bo ona zwykle decyduje)
             opt_szer_polaci = szer_polaci
             if st.button("🎯 Dopasuj okapy dla optymalnego układu pasów"):
-                # obliczamy docelową szerokość połaci jako wielokrotność szer_efekt_wierzch
                 n = math.ceil(szer_polaci / szer_efekt_wierzch)
-                nowa_szer = n * szer_efekt_wierzch * 100  # w cm
+                nowa_szer = n * szer_efekt_wierzch * 100
                 obecna_szer = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl)
                 roznica = nowa_szer - obecna_szer
-                # Rozdzielamy różnicę równo na przód i tył
                 nowy_przod = st.session_state.okap_przod + roznica / 2
                 nowy_tyl = st.session_state.okap_tyl + roznica / 2
-                # Ograniczenie zakresu
                 if 0 <= nowy_przod <= 100 and 0 <= nowy_tyl <= 100:
                     st.session_state.okap_przod = nowy_przod
                     st.session_state.okap_tyl = nowy_tyl
                     st.success(f"Ustawiono okap przód = {nowy_przod:.1f} cm, tył = {nowy_tyl:.1f} cm")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Nie można ustawić okapów – wartości poza zakresem. Spróbuj zmienić szerokość efektywną rolki lub kąt dachu.")
 
@@ -493,7 +498,6 @@ elif wybor == "Akcesoria":
 # ==================== KOSZTORYS ====================
 elif wybor == "Kosztorys":
     st.header("📊 Kosztorys zbiorczy")
-    # Ceny
     cena_drewna_m3 = st.session_state.cena_drewna_m3 if st.session_state.use_wlasna_cena else 1600.0
     if st.session_state.posz_wew:
         cena_welna_gl = st.session_state.cena_welna_glowna if st.session_state.use_wlasna_cena_welna_glowna else 35.0
@@ -518,7 +522,6 @@ elif wybor == "Kosztorys":
     cena_osb_zew = st.session_state.cena_osb_zew if st.session_state.use_wlasna_cena_osb_zew else 18.0
     cena_wiatro = st.session_state.cena_wiatro if st.session_state.use_wlasna_cena_wiatro else 8.0
 
-    # Ilości
     m3_drewna = objetosc_drewna()
     pow_netto = pow_scian_netto()
     pow_dach = pow_dachu()
@@ -535,15 +538,12 @@ elif wybor == "Kosztorys":
 
     # Dach
     if st.session_state.pokrycie == "Papa":
-        # liczenie jak w module
         szer_pol = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
         dl_pol = dlugosc_polaci()
-        # podkład
         szer_ef_pod = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
         pasy_pod = math.ceil(szer_pol / szer_ef_pod)
         laczna_dl_pod = 2 * pasy_pod * dl_pol
         rolki_pod = math.ceil(laczna_dl_pod / st.session_state.dlugosc_rolki_papa_podklad)
-        # wierzch
         szer_ef_w = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
         pasy_w = math.ceil(szer_pol / szer_ef_w)
         laczna_dl_w = 2 * pasy_w * dl_pol
@@ -557,7 +557,7 @@ elif wybor == "Kosztorys":
         koszt_dach = pow_dach * 90
 
     koszt_podloga = pow_podlogi() * 50 if st.session_state.technika_podlogi == "Ze stołem roboczym" else 0.0
-    koszt_akc = 150  # orientacyjnie
+    koszt_akc = 150
 
     suma = (koszt_drewno + koszt_welna_gl + koszt_welna_dod + koszt_kantowki +
             koszt_osb_wew + koszt_gk + koszt_paro + koszt_osb_zew + koszt_wiatro +
