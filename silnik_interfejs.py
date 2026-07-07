@@ -13,7 +13,6 @@ def init_state():
         'otwory': [], 'dlugosc_desek': 600,
         'osb_zew': 12, 'osb_wew': 0, 'gk_wew': 12.5,
         'ocieplenie_dach': 15, 'podloga_podwojna': False,
-        'section': 'geometria'
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -43,7 +42,7 @@ def obwod_scian():
 def liczba_slupkow():
     obwod = obwod_scian()
     rozstaw = st.session_state.rozstaw / 100
-    n = math.ceil(obwod / rozstaw) + 4  # narożniki
+    n = math.ceil(obwod / rozstaw) + 4
     for o in st.session_state.otwory:
         n += 2
     return n
@@ -60,75 +59,23 @@ def pow_dachu():
     rzut = (szer * dlug) / 1e4
     return rzut / math.cos(math.radians(st.session_state.kat))
 
-# ---------- INTERAKTYWNY DOMEK SVG ----------
-html_code = """
-<style>
-    .house-svg { cursor: pointer; width: 300px; height: auto; display: block; margin: 0 auto; }
-    .section-label { font-size: 12px; font-family: sans-serif; pointer-events: none; }
-</style>
-<div style="text-align: center;">
-    <svg class="house-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
-        <!-- Dach -->
-        <polygon points="150,20 280,120 20,120" fill="#e74c3c" stroke="#333" stroke-width="2"
-                 onclick="sendSection('dach')" />
-        <!-- Lewa ściana -->
-        <rect x="20" y="120" width="100" height="120" fill="#f1c40f" stroke="#333" stroke-width="2"
-              onclick="sendSection('konstrukcja_scian')" />
-        <!-- Prawa ściana -->
-        <rect x="180" y="120" width="100" height="120" fill="#f1c40f" stroke="#333" stroke-width="2"
-              onclick="sendSection('poszycia')" />
-        <!-- Drzwi (front) -->
-        <rect x="130" y="170" width="40" height="70" fill="#8e44ad" stroke="#333" stroke-width="2"
-              onclick="sendSection('geometria')" />
-        <!-- Okno lewe -->
-        <rect x="40" y="150" width="40" height="40" fill="#ecf0f1" stroke="#333" stroke-width="2"
-              onclick="sendSection('geometria')" />
-        <!-- Okno prawe -->
-        <rect x="220" y="150" width="40" height="40" fill="#ecf0f1" stroke="#333" stroke-width="2"
-              onclick="sendSection('geometria')" />
-        <!-- Fundament / podłoga -->
-        <rect x="20" y="240" width="260" height="30" fill="#95a5a6" stroke="#333" stroke-width="2"
-              onclick="sendSection('podloga')" />
+# ---------- INTERFEJS: ZAKŁADKI ----------
+st.title("🏗️ Inżynier Szkieletowy Pro")
+st.caption("Przełączaj się między modułami – wszystkie dane są współdzielone.")
 
-        <!-- Etykiety (opcjonalnie) -->
-        <text x="150" y="85" text-anchor="middle" class="section-label" fill="white">DACH</text>
-        <text x="70" y="200" text-anchor="middle" class="section-label">LEWA ŚCIANA</text>
-        <text x="230" y="200" text-anchor="middle" class="section-label">PRAWA ŚCIANA</text>
-        <text x="150" y="265" text-anchor="middle" class="section-label" fill="white">PODŁOGA</text>
-    </svg>
-    <p style="color:gray; font-size:0.9em;">Kliknij element domku, aby przejść do modułu.</p>
-</div>
-<script>
-    function sendSection(section) {
-        window.parent.postMessage({
-            isStreamlitMessage: true,
-            type: "streamlit:setComponentValue",
-            value: section
-        }, "*");
-    }
-</script>
-"""
+tabs = st.tabs([
+    "📐 Geometria",
+    "🏗️ Konstrukcja ścian",
+    "🧱 Poszycia i izolacje",
+    "🔺 Dach",
+    "🏠 Podłoga",
+    "🔩 Akcesoria",
+    "📊 Kosztorys"
+])
 
-# Odczyt kliknięcia z komponentu HTML
-clicked_section = st.components.v1.html(html_code, height=350)
-
-if clicked_section:
-    st.session_state.section = clicked_section
-
-# Dodatkowe przyciski dla modułów spoza domku
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🔩 AKCESORIA"):
-        st.session_state.section = "akcesoria"
-with col2:
-    if st.button("📊 KOSZTORYS"):
-        st.session_state.section = "kosztorys"
-
-st.markdown("---")
-
-# ==================== MODUŁY ====================
-if st.session_state.section == "geometria":
-    st.header("📐 Geometria budynku – wymiary główne")
+# ---------- ZAWARTOŚĆ ZAKŁADEK ----------
+with tabs[0]:
+    st.header("Geometria budynku – wymiary główne")
     c1, c2 = st.columns(2)
     with c1:
         st.number_input("Wysokość (cm)", 200, 600, key='wys')
@@ -139,10 +86,10 @@ if st.session_state.section == "geometria":
         st.metric("Powierzchnia podłogi", f"{pow_podlogi():.2f} m²")
         st.metric("Kubatura", f"{kubatura():.2f} m³")
         st.metric("Powierzchnia ścian (brutto)", f"{pow_scian_brutto():.2f} m²")
-    st.info("Otwory okienne i drzwiowe definiuje się w module **Konstrukcja ścian**.")
+    st.info("Otwory okienne i drzwiowe definiuje się w zakładce **Konstrukcja ścian**.")
 
-elif st.session_state.section == "konstrukcja_scian":
-    st.header("🏗️ Konstrukcja ścian")
+with tabs[1]:
+    st.header("Konstrukcja ścian")
     st.subheader("Materiał i rozstaw")
     col1, col2 = st.columns(2)
     with col1:
@@ -152,7 +99,7 @@ elif st.session_state.section == "konstrukcja_scian":
         st.number_input("Długość handlowa desek (cm)", 200, 1200, key='dlugosc_desek')
 
     st.divider()
-    st.subheader("🚪 Otwory (drzwi i okna) – wpływają na ilość drewna")
+    st.subheader("🚪 Otwory (drzwi i okna)")
     for i, o in enumerate(st.session_state.otwory):
         cols = st.columns([2,2,2,1])
         cols[0].text_input("Nazwa", o.get('nazwa',''), key=f"nazwa_{i}")
@@ -166,7 +113,7 @@ elif st.session_state.section == "konstrukcja_scian":
         st.rerun()
 
     st.divider()
-    st.subheader("Zapotrzebowanie na drewno konstrukcyjne")
+    st.subheader("Zapotrzebowanie na drewno")
     obwod = obwod_scian()
     n = liczba_slupkow()
     dl_calk = dlugosc_listwy()
@@ -180,12 +127,32 @@ elif st.session_state.section == "konstrukcja_scian":
     c3.metric(f"Desek {st.session_state.dlugosc_desek} cm", sztuk)
     st.metric("Procent resztek", f"{resztki:.1f} %")
 
-elif st.session_state.section == "dach":
-    st.header("🔺 Dach")
-    tab_konstr, tab_wykon = st.tabs(["Konstrukcja dachu", "Wykończenie dachu"])
+with tabs[2]:
+    st.header("Poszycia i izolacje")
+    st.subheader("Poszycie zewnętrzne")
+    st.number_input("Grubość OSB-3 zewn. (mm)", 8, 25, key='osb_zew')
+    wiatro_opcje = {"Membrana Standard 120g": 120, "Membrana Premium 160g": 160, "Folia wiatrochronna 100g": 100}
+    wybor_wiatro = st.selectbox("Wiatroizolacja", list(wiatro_opcje.keys()), key='wiatro')
+    pow_netto = pow_scian_netto()
+    pow_zapas = pow_netto * 1.1
+    st.write(f"Powierzchnia ścian netto: {pow_netto:.2f} m²")
+    st.write(f"Potrzebna wiatroizolacja (z 10% zapasem): {pow_zapas:.2f} m²")
 
-    with tab_konstr:
-        st.subheader("Parametry konstrukcji dachu")
+    st.subheader("Poszycie wewnętrzne (opcjonalne)")
+    if st.checkbox("Dodaj poszycie wewnętrzne", key='posz_wew'):
+        st.number_input("Płyta GK (mm)", 6, 25, key='gk_wew')
+        st.number_input("OSB-3 wewn. (mm, 0=pomiń)", 0, 25, key='osb_wew')
+        st.checkbox("Paroizolacja", True, key='paro')
+
+    st.subheader("Izolacja termiczna")
+    st.number_input("Grubość ocieplenia dachu (cm)", 5, 30, key='ocieplenie_dach')
+
+with tabs[3]:
+    st.header("Dach")
+    subtab1, subtab2 = st.tabs(["Konstrukcja dachu", "Wykończenie dachu"])
+
+    with subtab1:
+        st.subheader("Parametry konstrukcji")
         col1, col2 = st.columns(2)
         with col1:
             st.selectbox("Rozstaw belek (cm)", [30, 40, 60], key='rozstaw_dach')
@@ -198,7 +165,7 @@ elif st.session_state.section == "dach":
             st.slider("Prawo", 0, 100, key='okap_prawo')
         st.metric("Całkowita powierzchnia dachu", f"{pow_dachu():.2f} m²")
 
-    with tab_wykon:
+    with subtab2:
         st.subheader("Wykończenie pokrycia dachowego")
         st.selectbox("Rodzaj pokrycia", ["Papa", "Blachodachówka", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
@@ -223,36 +190,16 @@ elif st.session_state.section == "dach":
         st.write(f"**Cena za m²:** {cena_m2:.2f} zł")
         st.write(f"**Szacunkowy koszt pokrycia:** {pow_dach * cena_m2:.2f} zł")
 
-elif st.session_state.section == "poszycia":
-    st.header("🧱 Poszycia i izolacje")
-    st.subheader("Poszycie zewnętrzne")
-    st.number_input("Grubość OSB-3 zewn. (mm)", 8, 25, key='osb_zew')
-    wiatro_opcje = {"Membrana Standard 120g": 120, "Membrana Premium 160g": 160, "Folia wiatrochronna 100g": 100}
-    wybor_wiatro = st.selectbox("Wiatroizolacja", list(wiatro_opcje.keys()), key='wiatro')
-    pow_netto = pow_scian_netto()
-    pow_zapas = pow_netto * 1.1
-    st.write(f"Powierzchnia ścian netto: {pow_netto:.2f} m²")
-    st.write(f"Potrzebna wiatroizolacja (z 10% zapasem): {pow_zapas:.2f} m²")
-
-    st.subheader("Poszycie wewnętrzne (opcjonalne)")
-    if st.checkbox("Dodaj poszycie wewnętrzne", key='posz_wew'):
-        st.number_input("Płyta GK (mm)", 6, 25, key='gk_wew')
-        st.number_input("OSB-3 wewn. (mm, 0=pomiń)", 0, 25, key='osb_wew')
-        st.checkbox("Paroizolacja", True, key='paro')
-
-    st.subheader("Izolacja termiczna")
-    st.number_input("Grubość ocieplenia dachu (cm)", 5, 30, key='ocieplenie_dach')
-
-elif st.session_state.section == "podloga":
-    st.header("🏠 Podłoga")
+with tabs[4]:
+    st.header("Podłoga")
     st.checkbox("Podwójna podłoga (całoroczna)", key='podloga_podwojna')
     pow_podl = pow_podlogi()
     st.write(f"Powierzchnia podłogi: {pow_podl:.2f} m²")
     if st.session_state.podloga_podwojna:
         st.write("Dodatkowa warstwa podłogi (np. 95 mm) zostanie uwzględniona w kosztorysie.")
 
-elif st.session_state.section == "akcesoria":
-    st.header("🔩 Akcesoria i łączniki")
+with tabs[5]:
+    st.header("Akcesoria i łączniki")
     pow_osb = pow_scian_netto()
     wkrety_na_m2 = 25
     wkrety = math.ceil(pow_osb * wkrety_na_m2 * 1.15)
@@ -269,8 +216,8 @@ elif st.session_state.section == "akcesoria":
     katowniki = liczba_slupkow() * 2
     st.write(f"- Kątowniki: {katowniki} szt.")
 
-elif st.session_state.section == "kosztorys":
-    st.header("📊 Kosztorys zbiorczy")
+with tabs[6]:
+    st.header("Kosztorys zbiorczy")
     CENY = {
         'Drewno 95x45': 12.0, 'Drewno 145x45': 18.0, 'Drewno 195x45': 24.0,
         'OSB-3': 18.0, 'GK': 15.0,
@@ -300,4 +247,4 @@ elif st.session_state.section == "kosztorys":
         suma += koszt
     st.divider()
     st.subheader(f"Suma całkowita: **{suma:.2f} zł**")
-    st.caption("Edytuj ceny w słowniku CENY w kodzie.")
+    st.caption("Ceny można edytować w słowniku CENY w kodzie.")
