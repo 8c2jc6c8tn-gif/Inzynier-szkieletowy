@@ -1,15 +1,14 @@
 import streamlit as st
-import math
 
-# Konfiguracja strony
 st.set_page_config(layout="wide")
 st.title("Inżynier Szkieletowy - Modułowy Pro")
 
-# 1. Inicjalizacja danych - zawsze na początku
+# --- Inicjalizacja stanu ---
 if 'geo' not in st.session_state:
     st.session_state.geo = {'wys': 250, 'szer': 600, 'dlug': 800}
 
-# 2. Definicja zakładek - to jest "pancerna" struktura Streamlit
+# --- Zakładki ---
+# Zastosowanie 'key' w tabs pozwala na stabilniejszą pracę
 tabs = st.tabs([
     "1. Geometria", 
     "2. Konstr. Dachu", 
@@ -20,34 +19,27 @@ tabs = st.tabs([
     "7. Kosztorys"
 ])
 
-# 3. Treść poszczególnych zakładek
+# 1. Geometria
 with tabs[0]:
     st.header("1. Geometria Budynku")
-    st.session_state.geo['wys'] = st.number_input("Wysokość (cm)", 200, 500, st.session_state.geo['wys'])
-    st.session_state.geo['szer'] = st.number_input("Szerokość (cm)", 200, 1000, st.session_state.geo['szer'])
-    st.session_state.geo['dlug'] = st.number_input("Długość (cm)", 200, 1500, st.session_state.geo['dlug'])
+    st.session_state.geo['wys'] = st.number_input("Wysokość (cm)", 200, 500, st.session_state.geo['wys'], key="i_wys")
+    st.session_state.geo['szer'] = st.number_input("Wysokość (cm)", 200, 1000, st.session_state.geo['szer'], key="i_szer")
+    st.session_state.geo['dlug'] = st.number_input("Wysokość (cm)", 200, 1500, st.session_state.geo['dlug'], key="i_dlug")
 
-with tabs[1]:
-    st.header("2. Konstrukcja Dachu")
-    st.selectbox("Rozstaw belek (cm)", [30, 40, 60])
-    st.slider("Kąt nachylenia (°)", 0, 45, 20)
-
-with tabs[2]:
-    st.header("3. Wykończenie Dachu")
-    st.selectbox("Wybierz pokrycie", ["Papa", "Blachodachówka", "EPDM"])
-
+# 4. Konstrukcja Ścian (Tu wybierasz słupki)
 with tabs[3]:
     st.header("4. Konstrukcja Ścian")
-    st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"])
+    # Dodanie klucza 'key' zapobiega resetowaniu strony
+    przekroj = st.selectbox(
+        "Przekrój słupków", 
+        ["95x45", "145x45", "195x45"], 
+        key="wybor_slupkow"
+    )
+    st.write(f"Wybrano przekrój: {przekroj}")
 
-with tabs[4]:
-    st.header("5. Wykończenie Ścian")
-    st.write("Ustawienia płyt OSB i folii.")
-
-with tabs[5]:
-    st.header("6. Akcesoria")
-    st.write("Wkręty, taśmy, łączniki.")
-
-with tabs[6]:
-    st.header("7. Analiza Kosztów")
-    st.write("Tabela zbiorcza.")
+# --- Reszta zakładek ---
+with tabs[1]: st.header("2. Konstrukcja Dachu")
+with tabs[2]: st.header("3. Wykończenie Dachu")
+with tabs[4]: st.header("5. Wykończenie Ścian")
+with tabs[5]: st.header("6. Akcesoria")
+with tabs[6]: st.header("7. Kosztorys")
