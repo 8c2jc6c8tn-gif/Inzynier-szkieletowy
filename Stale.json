@@ -1,0 +1,8 @@
+{
+    "rozstaw_belek_m": 0.6,
+    "grubosc_osb_mm": 12,
+    "standard_drewna": "C24",
+    "cena_drewna_mb": 5.50,
+    "zapas_materialu_procent": 10,
+    "wysokosc_standardowa_m": 2.7
+}
