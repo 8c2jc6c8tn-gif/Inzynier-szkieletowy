@@ -10,34 +10,35 @@ if 'okna' not in st.session_state:
 import streamlit as st
 import math
 
-st.set_page_config(layout="wide")
-st.title("Inżynier Szkieletowy - Moduł Geometrii")
+st.title("Inżynier Szkieletowy - Modułowy Pro")
 
-# --- MODUŁ 1: GEOMETRIA ---
-with st.sidebar:
-    st.header("1. Parametry Budynku")
+# --- Zakładki ---
+tab_geo, tab_konstr, tab_posz, tab_akc, tab_koszt = st.tabs(["Geometria", "Konstrukcja", "Poszycia", "Akcesoria", "Kosztorys"])
+
+with tab_geo:
+    st.header("1. Parametry Geometrii")
     wys = st.slider("Wysokość (cm)", 200, 500, 250)
     szer = st.slider("Szerokość (cm)", 200, 1000, 600)
     dlug = st.slider("Długość (cm)", 200, 1500, 800)
     
-    st.header("Dach")
+    st.subheader("Dach")
     kat_stopnie = st.slider("Kąt nachylenia (°):", 0, 45, 20)
     
     # Przelicznik
     kat_rad = math.radians(kat_stopnie)
     kat_procent = math.tan(kat_rad) * 100
     
-    # Wyświetlanie wyników
     col1, col2 = st.columns(2)
     col1.metric("Kąt", f"{kat_stopnie}°")
     col2.metric("Pochylenie", f"{kat_procent:.1f}%")
-    
-    st.info(f"Spadek: {math.tan(kat_rad):.2f} m na 1 m.")
 
-# --- Główna część aplikacji ---
-st.write("Witaj w inżynierskim kalkulatorze. Jeśli widzisz ten tekst, to znaczy, że moduł geometrii działa poprawnie.")
+with tab_konstr:
+    st.header("Konstrukcja")
+    rodzaj_drewna = st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"])
+    dlugosc_desek = st.number_input("Długość desek (m)", value=5.0)
+    procent_odpadu = st.slider("Procent resztek/odpadu (%)", 0, 30, 15)
 
-# Tu będziemy dodawać kolejne moduły (Materiały, Akcesoria itd.)
+# Reszta zakładek...
 
 
 # --- 2. Zakładki ---
