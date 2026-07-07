@@ -7,21 +7,33 @@ st.title("Inżynier Szkieletowy - Modułowy Pro")
 if 'okna' not in st.session_state:
     st.session_state.okna = []
 
-# --- 1. Moduł: Geometria ---
+import streamlit as st
+import math
+
+# ...
+
+# --- 1. Moduł: Geometria (z poprawką na kąty) ---
 with st.sidebar:
     st.header("1. Geometria")
     wys = st.slider("Wysokość (cm)", 200, 500, 250)
-    szer = st.slider("Szerokość (cm)", 200, 1000, 600)
-    dlug = st.slider("Długość (cm)", 200, 1500, 800)
+    szer = st.slider("Wymiar szerokości (cm)", 200, 1000, 600)
+    dlug = st.slider("Wymiar długości (cm)", 200, 1500, 800)
     
-    st.subheader("Otwory")
-    if st.button("Dodaj okno"):
-        st.session_state.okna.append({'szer': 100, 'wys': 100})
+    st.subheader("Dach i nachylenie")
+    kat_stopnie = st.slider("Kąt nachylenia dachu (°):", 0, 45, 20)
     
-    for i, okno in enumerate(st.session_state.okna):
-        col1, col2 = st.columns(2)
-        okno['szer'] = col1.number_input(f"Szer. okna {i+1}", value=okno['szer'])
-        okno['wys'] = col2.number_input(f"Wys. okna {i+1}", value=okno['wys'])
+    # Obliczenie procentów
+    kat_rad = math.radians(kat_stopnie)
+    kat_procent = math.tan(kat_rad) * 100
+    
+    # Wyświetlanie obok siebie
+    col1, col2 = st.columns(2)
+    col1.metric("Kąt", f"{kat_stopnie}°")
+    col2.metric("Pochylenie", f"{kat_procent:.1f}%")
+    
+    st.info(f"Oznacza to spadek {math.tan(kat_rad):.2f} m na każdy 1 m w poziomie.")
+
+# ...
 
 # --- 2. Zakładki ---
 tab1, tab2, tab3, tab4 = st.tabs(["Konstrukcja", "Poszycia", "Akcesoria", "Kosztorys"])
