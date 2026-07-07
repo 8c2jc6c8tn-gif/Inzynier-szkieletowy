@@ -108,15 +108,6 @@ def obwod_dachu():
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     return 2 * (szer + dlug) / 100
 
-def update_okap_przod():
-    st.session_state.okap_przod = st.session_state.dach_okap_przod
-def update_okap_tyl():
-    st.session_state.okap_tyl = st.session_state.dach_okap_tyl
-def update_okap_lewo():
-    st.session_state.okap_lewo = st.session_state.dach_okap_lewo
-def update_okap_prawo():
-    st.session_state.okap_prawo = st.session_state.dach_okap_prawo
-
 # ---------- MENU ----------
 st.title("🏗️ Inżynier Szkieletowy Pro")
 zakladki = ["Geometria", "Ściany", "Dach", "Podłoga", "Akcesoria", "Kosztorys"]
@@ -219,9 +210,12 @@ elif wybor == "Ściany":
         """, unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            poszycie_wew = st.checkbox("Poszycie wewnętrzne", value=st.session_state.poszycie_wew, key='poszycie_wew')
-        
-        if poszycie_wew:
+            st.checkbox("Poszycie wewnętrzne", value=st.session_state.poszycie_wew, key='poszycie_wew')
+
+        # Linia diagnostyczna (możesz usunąć po testach)
+        st.caption(f"DEBUG: poszycie_wew = {st.session_state.poszycie_wew}")
+
+        if st.session_state.poszycie_wew:
             # 1. Wełna główna
             grub_map = {"95x45":100, "145x45":150, "195x45":200}
             gr = grub_map[st.session_state.slupki]
@@ -369,11 +363,11 @@ elif wybor == "Dach":
         st.subheader("Okapy")
         c1, c2 = st.columns(2)
         with c1:
-            st.slider("Przód (cm)", 0, 100, value=st.session_state.okap_przod, key='dach_okap_przod', on_change=update_okap_przod)
-            st.slider("Lewo (cm)", 0, 100, value=st.session_state.okap_lewo, key='dach_okap_lewo', on_change=update_okap_lewo)
+            st.number_input("Przód (cm)", 0, 100, value=st.session_state.okap_przod, key='okap_przod')
+            st.number_input("Lewo (cm)", 0, 100, value=st.session_state.okap_lewo, key='okap_lewo')
         with c2:
-            st.slider("Tył (cm)", 0, 100, value=st.session_state.okap_tyl, key='dach_okap_tyl', on_change=update_okap_tyl)
-            st.slider("Prawo (cm)", 0, 100, value=st.session_state.okap_prawo, key='dach_okap_prawo', on_change=update_okap_prawo)
+            st.number_input("Tył (cm)", 0, 100, value=st.session_state.okap_tyl, key='okap_tyl')
+            st.number_input("Prawo (cm)", 0, 100, value=st.session_state.okap_prawo, key='okap_prawo')
         st.divider()
         st.markdown(f"<h3 style='text-align:center;'>Powierzchnia dachu: {pow_dachu():.2f} m²</h3>", unsafe_allow_html=True)
 
