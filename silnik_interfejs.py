@@ -22,10 +22,10 @@ def init_state():
         'paroizolacja': "Folia PE 0,2mm",
         'posz_wew': False,
         'dlugosc_rolki_papa_podklad': 10.0,
-        'szerokosc_rolki_papa_podklad': 1.0,
+        'szerokosc_rolki_papa_podklad': 1.0,   # stała
         'zaklad_papa_podklad': 0.10,
         'dlugosc_rolki_papa_wierzch': 10.0,
-        'szerokosc_rolki_papa_wierzch': 1.0,
+        'szerokosc_rolki_papa_wierzch': 1.0,   # stała
         'zaklad_papa_wierzch': 0.10,
         'dodatkowa_izolacja': False,
         'rozstaw_kantowek': 60,
@@ -45,6 +45,14 @@ def init_state():
             o['id'] = str(uuid.uuid4())
 
 init_state()
+
+# Funkcje pomocnicze do synchronizacji slider <-> number_input
+def sync_slider_number(slider_key, number_key, state_key):
+    """Aktualizuje stan na podstawie wartości z number_input i odwrotnie."""
+    if number_key in st.session_state:
+        st.session_state[state_key] = st.session_state[number_key]
+    if slider_key in st.session_state:
+        st.session_state[state_key] = st.session_state[slider_key]
 
 # ---------- FUNKCJE ----------
 def pow_podlogi():
@@ -116,9 +124,15 @@ if wybor == "Geometria":
     st.header("📐 Geometria")
     c1, c2 = st.columns(2)
     with c1:
-        st.number_input("Wysokość (cm)", 200, 600, key='wys')
-        st.number_input("Szerokość (cm)", 200, 1500, key='szer')
-        st.number_input("Długość (cm)", 200, 2000, key='dlug')
+        # Wysokość
+        wys_slider = st.slider("Wysokość (cm) – szybki wybór", 200, 600, step=10, value=st.session_state.wys, key='wys_slider')
+        st.number_input("Dokładna wysokość (cm)", 200, 600, value=wys_slider, key='wys', on_change=sync_slider_number, args=('wys_slider', 'wys', 'wys'))
+        # Szerokość
+        szer_slider = st.slider("Szerokość (cm) – szybki wybór", 200, 1500, step=10, value=st.session_state.szer, key='szer_slider')
+        st.number_input("Dokładna szerokość (cm)", 200, 1500, value=szer_slider, key='szer', on_change=sync_slider_number, args=('szer_slider', 'szer', 'szer'))
+        # Długość
+        dlug_slider = st.slider("Długość (cm) – szybki wybór", 200, 2000, step=10, value=st.session_state.dlug, key='dlug_slider')
+        st.number_input("Dokładna długość (cm)", 200, 2000, value=dlug_slider, key='dlug', on_change=sync_slider_number, args=('dlug_slider', 'dlug', 'dlug'))
     with c2:
         st.subheader("Parametry")
         st.metric("Powierzchnia podłogi", f"{pow_podlogi():.2f} m²")
@@ -138,10 +152,9 @@ elif wybor == "Ściany":
             st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"], key='slupki')
             st.selectbox("Rozstaw słupków (cm)", [60, 120], key='rozstaw')
         with col2:
-            # Suwak + number_input dla długości handlowej desek
-            dl_desek = st.slider("Dł. handlowa desek (cm) – szybki wybór", 200, 1200, step=100, value=st.session_state.dlugosc_desek, key='dlugosc_desek_slider')
-            st.session_state.dlugosc_desek = dl_desek
-            st.number_input("Dokładna długość (cm)", 200, 1200, value=dl_desek, key='dlugosc_desek')
+            # Długość handlowa desek – zsynchronizowana
+            dl_desek_slider = st.slider("Dł. handlowa desek (cm) – szybki wybór", 200, 1200, step=50, value=st.session_state.dlugosc_desek, key='dlugosc_desek_slider')
+            st.number_input("Dokładna długość (cm)", 200, 1200, value=dl_desek_slider, step=5, key='dlugosc_desek', on_change=sync_slider_number, args=('dlugosc_desek_slider', 'dlugosc_desek', 'dlugosc_desek'))
 
         st.divider()
         st.subheader("🚪 Otwory")
@@ -228,9 +241,11 @@ elif wybor == "Ściany":
                 st.write(f"Powierzchnia: **{pow_netto:.1f} m²** → **{paczki5} paczek**")
                 st.write(f"Koszt: **{pow_netto * cena5:.2f} zł**")
 
+                # Kantówki
                 st.markdown(f"<h4 style='margin:0'>Kantówki 45x45 mm (poprzeczne)</h4>", unsafe_allow_html=True)
-                rozstaw = st.slider("Rozstaw kantówek (cm)", 30, 80, value=st.session_state.rozstaw_kantowek, key='rozstaw_kantowek')
-                rzedy = math.ceil(st.session_state.wys / 100 / (rozstaw/100)) + 1
+                rozstaw_kant_slider = st.slider("Rozstaw kantówek (cm)", 30, 80, step=5, value=st.session_state.rozstaw_kantowek, key='rozstaw_kantowek_slider')
+                st.number_input("Dokładny rozstaw (cm)", 30, 80, value=rozstaw_kant_slider, step=5, key='rozstaw_kantowek', on_change=sync_slider_number, args=('rozstaw_kantowek_slider', 'rozstaw_kantowek', 'rozstaw_kantowek'))
+                rzedy = math.ceil(st.session_state.wys / 100 / (rozstaw_kant_slider/100)) + 1
                 mb_kant = rzedy * obwod_scian()
                 cena_kant_dom = 6.0
                 col_a3, col_b3 = st.columns([1,2])
@@ -242,10 +257,13 @@ elif wybor == "Ściany":
                     col_b3.write(f"Cena domyślna: {cena_kant_dom:.2f} zł/mb")
                 st.write(f"Długość: **{mb_kant:.1f} mb**")
                 st.write(f"Koszt: **{mb_kant * cena_k:.2f} zł**")
+            else:
+                # Jeśli dodatkowa izolacja wyłączona – kantówki nie są potrzebne
+                pass
 
             # 4. OSB wewn.
             st.markdown(f"<h4 style='margin:0'>Płyta OSB-3 wewnętrzna</h4>", unsafe_allow_html=True)
-            gr_osb = st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_wew')
+            st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_wew')
             cena_osb_dom = 18.0
             col_a4, col_b4 = st.columns([1,2])
             own_osb = col_a4.checkbox("Własna cena", key='use_wlasna_cena_osb_wew')
@@ -290,7 +308,7 @@ elif wybor == "Ściany":
         st.markdown("### Poszycie zewnętrzne")
         pow_netto = pow_scian_netto()
         st.markdown(f"<h4 style='margin:0'>Płyta OSB-3 zewnętrzna</h4>", unsafe_allow_html=True)
-        gr_osb_zew = st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_zew')
+        st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_zew')
         cena_osb_zew_dom = 18.0
         col_az, col_bz = st.columns([1,2])
         own_osz = col_az.checkbox("Własna cena", key='use_wlasna_cena_osb_zew')
@@ -352,64 +370,62 @@ elif wybor == "Dach":
         st.markdown("---")
 
         if st.session_state.pokrycie == "Papa":
-            st.markdown("#### Parametry rolki – papa podkładowa")
-            col_p1, col_p2, col_p3 = st.columns(3)
+            st.markdown("#### Papa podkładowa")
+            col_p1, col_p2 = st.columns(2)
             with col_p1:
-                dl_pod_slider = st.slider("Długość (m) – szybki wybór", 5, 20, step=1, value=int(st.session_state.dlugosc_rolki_papa_podklad), key='dl_pod_slider')
-                st.number_input("Dokładna długość (m)", 5.0, 20.0, value=float(dl_pod_slider), key='dlugosc_rolki_papa_podklad')
+                dl_pod_slider = st.slider("Długość (m) – szybki wybór", 5.0, 20.0, step=0.5, value=st.session_state.dlugosc_rolki_papa_podklad, key='dl_pod_slider')
+                st.number_input("Dokładna długość (m)", 5.0, 20.0, value=dl_pod_slider, step=0.05, key='dlugosc_rolki_papa_podklad', on_change=sync_slider_number, args=('dl_pod_slider', 'dlugosc_rolki_papa_podklad', 'dlugosc_rolki_papa_podklad'))
             with col_p2:
-                szer_pod_slider = st.slider("Szerokość (m) – szybki wybór", 0.5, 2.0, step=0.1, value=float(st.session_state.szerokosc_rolki_papa_podklad), key='szer_pod_slider')
-                st.number_input("Dokładna szerokość (m)", 0.5, 2.0, value=szer_pod_slider, key='szerokosc_rolki_papa_podklad')
-            with col_p3:
-                zakl_pod_slider = st.slider("Zakład (m) – szybki wybór", 0.05, 0.30, step=0.01, value=float(st.session_state.zaklad_papa_podklad), key='zakl_pod_slider')
-                st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=zakl_pod_slider, step=0.01, key='zaklad_papa_podklad')
+                st.markdown("**Szerokość:** 1.00 m (stała)")
+                zakl_pod_slider = st.slider("Zakład (m)", 0.05, 0.30, step=0.01, value=st.session_state.zaklad_papa_podklad, key='zakl_pod_slider')
+                st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=zakl_pod_slider, step=0.01, key='zaklad_papa_podklad', on_change=sync_slider_number, args=('zakl_pod_slider', 'zaklad_papa_podklad', 'zaklad_papa_podklad'))
+            szer_efekt_podklad = 1.0 - st.session_state.zaklad_papa_podklad
 
-            st.markdown("#### Parametry rolki – papa wierzchnia")
-            col_w1, col_w2, col_w3 = st.columns(3)
+            st.markdown("#### Papa wierzchnia")
+            col_w1, col_w2 = st.columns(2)
             with col_w1:
-                dl_w_slider = st.slider("Długość (m) – szybki wybór", 5, 20, step=1, value=int(st.session_state.dlugosc_rolki_papa_wierzch), key='dl_w_slider')
-                st.number_input("Dokładna długość (m)", 5.0, 20.0, value=float(dl_w_slider), key='dlugosc_rolki_papa_wierzch')
+                dl_w_slider = st.slider("Długość (m) – szybki wybór", 5.0, 20.0, step=0.5, value=st.session_state.dlugosc_rolki_papa_wierzch, key='dl_w_slider')
+                st.number_input("Dokładna długość (m)", 5.0, 20.0, value=dl_w_slider, step=0.05, key='dlugosc_rolki_papa_wierzch', on_change=sync_slider_number, args=('dl_w_slider', 'dlugosc_rolki_papa_wierzch', 'dlugosc_rolki_papa_wierzch'))
             with col_w2:
-                szer_w_slider = st.slider("Szerokość (m) – szybki wybór", 0.5, 2.0, step=0.1, value=float(st.session_state.szerokosc_rolki_papa_wierzch), key='szer_w_slider')
-                st.number_input("Dokładna szerokość (m)", 0.5, 2.0, value=szer_w_slider, key='szerokosc_rolki_papa_wierzch')
-            with col_w3:
-                zakl_w_slider = st.slider("Zakład (m) – szybki wybór", 0.05, 0.30, step=0.01, value=float(st.session_state.zaklad_papa_wierzch), key='zakl_w_slider')
-                st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=zakl_w_slider, step=0.01, key='zaklad_papa_wierzch')
+                st.markdown("**Szerokość:** 1.00 m (stała)")
+                zakl_w_slider = st.slider("Zakład (m)", 0.05, 0.30, step=0.01, value=st.session_state.zaklad_papa_wierzch, key='zakl_w_slider')
+                st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=zakl_w_slider, step=0.01, key='zaklad_papa_wierzch', on_change=sync_slider_number, args=('zakl_w_slider', 'zaklad_papa_wierzch', 'zaklad_papa_wierzch'))
+            szer_efekt_wierzch = 1.0 - st.session_state.zaklad_papa_wierzch
 
-            # Obliczenia
-            pow_rolki_podklad = st.session_state.dlugosc_rolki_papa_podklad * st.session_state.szerokosc_rolki_papa_podklad
-            szer_efekt_podklad = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
             szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
-            liczba_pasow = math.ceil(szer_polaci / szer_efekt_podklad)
             dl_pol = dlugosc_polaci()
-            laczna_dlugosc_pasow = 2 * liczba_pasow * dl_pol
-            rolki_podklad = math.ceil(laczna_dlugosc_pasow / st.session_state.dlugosc_rolki_papa_podklad)
 
-            pow_rolki_wierzch = st.session_state.dlugosc_rolki_papa_wierzch * st.session_state.szerokosc_rolki_papa_wierzch
-            szer_efekt_wierzch = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
-            liczba_pasow_w = math.ceil(szer_polaci / szer_efekt_wierzch)
-            laczna_dlugosc_pasow_w = 2 * liczba_pasow_w * dl_pol
-            rolki_wierzch = math.ceil(laczna_dlugosc_pasow_w / st.session_state.dlugosc_rolki_papa_wierzch)
+            # Obliczenia dla podkładu
+            pasy_pod = math.ceil(szer_polaci / szer_efekt_podklad)
+            laczna_dl_pod = 2 * pasy_pod * dl_pol
+            rolki_pod = math.ceil(laczna_dl_pod / st.session_state.dlugosc_rolki_papa_podklad)
+            # Obliczenia dla wierzchniej
+            pasy_w = math.ceil(szer_polaci / szer_efekt_wierzch)
+            laczna_dl_w = 2 * pasy_w * dl_pol
+            rolki_w = math.ceil(laczna_dl_w / st.session_state.dlugosc_rolki_papa_wierzch)
 
-            st.write(f"**Papa podkładowa:** {rolki_podklad} rolki")
-            st.write(f"**Papa wierzchnia:** {rolki_wierzch} rolki")
+            st.write(f"**Papa podkładowa:** {rolki_pod} rolki (efektywna szerokość {szer_efekt_podklad:.2f} m)")
+            st.write(f"**Papa wierzchnia:** {rolki_w} rolki (efektywna szerokość {szer_efekt_wierzch:.2f} m)")
 
-            # Porada + przycisk optymalizacji okapów
-            opt_szer_polaci = szer_polaci
-            if st.button("🎯 Dopasuj okapy dla optymalnego układu pasów"):
-                n = math.ceil(szer_polaci / szer_efekt_wierzch)
-                nowa_szer = n * szer_efekt_wierzch * 100
-                obecna_szer = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl)
-                roznica = nowa_szer - obecna_szer
-                nowy_przod = st.session_state.okap_przod + roznica / 2
-                nowy_tyl = st.session_state.okap_tyl + roznica / 2
-                if 0 <= nowy_przod <= 100 and 0 <= nowy_tyl <= 100:
-                    st.session_state.okap_przod = nowy_przod
-                    st.session_state.okap_tyl = nowy_tyl
-                    st.success(f"Ustawiono okap przód = {nowy_przod:.1f} cm, tył = {nowy_tyl:.1f} cm")
-                    st.rerun()
-                else:
-                    st.error("Nie można ustawić okapów – wartości poza zakresem. Spróbuj zmienić szerokość efektywną rolki lub kąt dachu.")
+            # Optymalizacja okapów
+            opt_szer = pasy_w * szer_efekt_wierzch
+            roznica = opt_szer - szer_polaci
+            if abs(roznica) < 0.001:
+                st.success("✅ Okapy są optymalnie dopasowane – brak odpadów na szerokości.")
+            else:
+                st.error(f"⚠️ Okapy nie są optymalne. Różnica: {roznica*100:.1f} cm. Możesz kliknąć przycisk, aby automatycznie dopasować okapy.")
+                if st.button("🎯 Dopasuj okapy"):
+                    nowa_szer_cm = opt_szer * 100
+                    obecna_dlugosc_cm = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
+                    delta = nowa_szer_cm - obecna_dlugosc_cm
+                    nowy_przod = st.session_state.okap_przod + delta / 2
+                    nowy_tyl = st.session_state.okap_tyl + delta / 2
+                    if 0 <= nowy_przod <= 100 and 0 <= nowy_tyl <= 100:
+                        st.session_state.okap_przod = nowy_przod
+                        st.session_state.okap_tyl = nowy_tyl
+                        st.rerun()
+                    else:
+                        st.error("Nie można ustawić okapów – wartości poza zakresem. Spróbuj zmienić parametry papy lub kąt dachu.")
 
             masa_kg = pow_dach * 0.5
             st.write(f"**Masa bitumiczna:** ok. {masa_kg:.1f} kg ({math.ceil(masa_kg/5)} wiader 5 kg)")
@@ -536,15 +552,14 @@ elif wybor == "Kosztorys":
     koszt_osb_zew = pow_netto * cena_osb_zew
     koszt_wiatro = pow_netto * 1.1 * cena_wiatro
 
-    # Dach
     if st.session_state.pokrycie == "Papa":
         szer_pol = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
         dl_pol = dlugosc_polaci()
-        szer_ef_pod = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
+        szer_ef_pod = 1.0 - st.session_state.zaklad_papa_podklad
         pasy_pod = math.ceil(szer_pol / szer_ef_pod)
         laczna_dl_pod = 2 * pasy_pod * dl_pol
         rolki_pod = math.ceil(laczna_dl_pod / st.session_state.dlugosc_rolki_papa_podklad)
-        szer_ef_w = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
+        szer_ef_w = 1.0 - st.session_state.zaklad_papa_wierzch
         pasy_w = math.ceil(szer_pol / szer_ef_w)
         laczna_dl_w = 2 * pasy_w * dl_pol
         rolki_w = math.ceil(laczna_dl_w / st.session_state.dlugosc_rolki_papa_wierzch)
