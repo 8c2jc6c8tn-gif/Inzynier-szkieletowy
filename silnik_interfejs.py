@@ -37,6 +37,7 @@ def init_state():
         'use_wlasna_cena_osb_zew': False, 'use_wlasna_cena_wiatro': False,
         'uzyj_osb_wew': True, 'uzyj_gk_wew': True,
         'poszycie_wew': False,
+        'pokaz_wybor': False,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -107,7 +108,6 @@ def obwod_dachu():
     dlug = st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl
     return 2 * (szer + dlug) / 100
 
-# Callbacki do synchronizacji okapów (dach)
 def update_okap_przod():
     st.session_state.okap_przod = st.session_state.dach_okap_przod
 def update_okap_tyl():
@@ -199,16 +199,19 @@ elif wybor == "Ściany":
             st.write(f"Koszt (cena domyślna 1600 zł/m³): **{koszt:.2f} zł**")
 
     else:  # Wykończenie ścian
-        st.subheader("🧵 Wykończenie ścian")
+        st.markdown("<h2 style='text-align: center;'>Wykończenie ścian</h2>", unsafe_allow_html=True)
         pow_netto = pow_scian_netto()
 
-        if st.checkbox("Poszycie wewnętrzne", key='poszycie_wew'):
+        # Poszycie wewnętrzne – oddzielone grubą szarą linią
+        st.markdown("<hr style='border:2px solid #666; margin: 20px 0;'>", unsafe_allow_html=True)
+        poszycie_wew = st.checkbox("Poszycie wewnętrzne", key='poszycie_wew')
+        if poszycie_wew:
             st.markdown("### Poszycie wewnętrzne")
 
             # 1. Wełna główna
             grub_map = {"95x45":100, "145x45":150, "195x45":200}
             gr = grub_map[st.session_state.slupki]
-            st.markdown(f"<h4 style='margin:0'>Wełna Knauf Ecose {gr} mm</h4>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='margin:0'>Wełna Knauf Ecose {gr} mm</h3>", unsafe_allow_html=True)
             pokrycie_map = {100:5.76, 150:4.32, 200:2.88}
             paczki = math.ceil(pow_netto / pokrycie_map[gr])
             cena_dom = 35.0
@@ -225,7 +228,7 @@ elif wybor == "Ściany":
 
             # 2. Dodatkowa izolacja (opcjonalna)
             if st.checkbox("Dodatkowa izolacja termiczna 5 cm + kantówki", key='dodatkowa_izolacja'):
-                st.markdown(f"<h4 style='margin:0'>Wełna Knauf Ecose 50 mm (dodatkowa)</h4>", unsafe_allow_html=True)
+                st.markdown(f"<h3 style='margin:0'>Wełna Knauf Ecose 50 mm (dodatkowa)</h3>", unsafe_allow_html=True)
                 paczki5 = math.ceil(pow_netto / 8.64)
                 cena_dom5 = 25.0
                 col_a2, col_b2 = st.columns([1,2])
@@ -239,7 +242,7 @@ elif wybor == "Ściany":
                 st.write(f"Koszt: **{pow_netto * cena5:.2f} zł**")
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
 
-                st.markdown(f"<h4 style='margin:0'>Kantówki 45x45 mm (poprzeczne)</h4>", unsafe_allow_html=True)
+                st.markdown(f"<h3 style='margin:0'>Kantówki 45x45 mm (poprzeczne)</h3>", unsafe_allow_html=True)
                 rozstaw = st.slider("Rozstaw kantówek (cm)", 30, 80, step=5, value=st.session_state.rozstaw_kantowek, key='rozstaw_kantowek')
                 rzedy = math.ceil(st.session_state.wys / 100 / (rozstaw/100)) + 1
                 mb_kant = rzedy * obwod_scian()
@@ -258,7 +261,7 @@ elif wybor == "Ściany":
             # 3. OSB wewn. (opcjonalne)
             uzyj_osb = st.checkbox("Płyta OSB-3 wewnętrzna", value=st.session_state.uzyj_osb_wew, key='uzyj_osb_wew')
             if uzyj_osb:
-                st.markdown(f"<h4 style='margin:0'>Płyta OSB-3 wewnętrzna</h4>", unsafe_allow_html=True)
+                st.markdown(f"<h3 style='margin:0'>Płyta OSB-3 wewnętrzna</h3>", unsafe_allow_html=True)
                 st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_wew')
                 cena_osb_dom = 18.0
                 col_a4, col_b4 = st.columns([1,2])
@@ -275,7 +278,7 @@ elif wybor == "Ściany":
             # 4. Płyta GK (opcjonalna)
             uzyj_gk = st.checkbox("Płyta gipsowo-kartonowa 12,5 mm", value=st.session_state.uzyj_gk_wew, key='uzyj_gk_wew')
             if uzyj_gk:
-                st.markdown(f"<h4 style='margin:0'>Płyta gipsowo-kartonowa 12,5 mm</h4>", unsafe_allow_html=True)
+                st.markdown(f"<h3 style='margin:0'>Płyta gipsowo-kartonowa 12,5 mm</h3>", unsafe_allow_html=True)
                 cena_gk_dom = 15.0
                 col_a5, col_b5 = st.columns([1,2])
                 own_gk = col_a5.checkbox("Własna cena", key='use_wlasna_cena_gk')
@@ -289,7 +292,7 @@ elif wybor == "Ściany":
                 st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
 
             # 5. Paroizolacja (zawsze w poszyciu wewn.)
-            st.markdown(f"<h4 style='margin:0'>Paroizolacja</h4>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='margin:0'>Paroizolacja</h3>", unsafe_allow_html=True)
             paro_opcje = {"Folia PE 0,2mm":3.5, "Folia PE 0,3mm":4.8, "Folia aluminiowa":8.2, "Membrana paroszczelna":6.5}
             wybor_paro = st.selectbox("Rodzaj", list(paro_opcje.keys()), key='paroizolacja')
             cena_paro_dom = paro_opcje[wybor_paro]
@@ -305,10 +308,10 @@ elif wybor == "Ściany":
 
         # Czerwona linia oddzielająca
         st.markdown("<hr style='border:2px solid #e74c3c; margin:25px 0;'>", unsafe_allow_html=True)
-        st.markdown("### Poszycie zewnętrzne")
+        st.markdown("<h2 style='text-align: center;'>Poszycie zewnętrzne</h2>", unsafe_allow_html=True)
         pow_netto = pow_scian_netto()
 
-        st.markdown(f"<h4 style='margin:0'>Płyta OSB-3 zewnętrzna</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='margin:0'>Płyta OSB-3 zewnętrzna</h3>", unsafe_allow_html=True)
         st.selectbox("Grubość (mm)", [8,9,10,12], key='osb_zew')
         cena_osb_zew_dom = 18.0
         col_az, col_bz = st.columns([1,2])
@@ -322,7 +325,7 @@ elif wybor == "Ściany":
         st.write(f"Koszt: **{pow_netto * cena_osz:.2f} zł**")
         st.markdown("<hr style='border:1px solid #555; margin:10px 0;'>", unsafe_allow_html=True)
 
-        st.markdown(f"<h4 style='margin:0'>Wiatroizolacja</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='margin:0'>Wiatroizolacja</h3>", unsafe_allow_html=True)
         wiatro_opcje = {"Membrana Standard 120g":120, "Membrana Premium 160g":160, "Folia wiatrochronna 100g":100}
         wybor_w = st.selectbox("Rodzaj", list(wiatro_opcje.keys()), key='wiatro')
         pow_zapas = pow_netto * 1.1
@@ -359,7 +362,7 @@ elif wybor == "Dach":
         st.divider()
         st.markdown(f"<h3 style='text-align:center;'>Powierzchnia dachu: {pow_dachu():.2f} m²</h3>", unsafe_allow_html=True)
 
-    else:  # Wykończenie dachu
+    else:
         st.subheader("Wykończenie dachu")
         st.selectbox("Pokrycie", ["Papa", "Blachodachówka", "Gont bitumiczny", "EPDM"], key='pokrycie')
         pow_dach = pow_dachu()
@@ -389,10 +392,8 @@ elif wybor == "Dach":
                 zakl_w = st.slider("Zakład (m)", 0.05, 0.30, step=0.01, value=st.session_state.zaklad_papa_wierzch, key='zakl_w_slider', on_change=lambda: st.session_state.update(zaklad_papa_wierzch=st.session_state.zakl_w_slider))
                 st.number_input("Dokładny zakład (m)", 0.05, 0.30, value=st.session_state.zaklad_papa_wierzch, step=0.01, key='zaklad_papa_wierzch', on_change=lambda: st.session_state.update(zakl_w_slider=st.session_state.zaklad_papa_wierzch))
 
-            # Obliczenia
             szer_efekt_w = st.session_state.szerokosc_rolki_papa_wierzch - st.session_state.zaklad_papa_wierzch
             szer_polaci = (st.session_state.dlug + st.session_state.okap_przod + st.session_state.okap_tyl) / 100
-            dl_pol = dlugosc_polaci()
             pasy_w = math.ceil(szer_polaci / szer_efekt_w)
             opt_szer = pasy_w * szer_efekt_w
             roznica = opt_szer - szer_polaci
@@ -402,7 +403,7 @@ elif wybor == "Dach":
                 st.error(f"⚠️ Różnica: {roznica*100:.1f} cm")
                 if st.button("🎯 Dopasuj okapy", use_container_width=True):
                     st.session_state.pokaz_wybor = True
-                if st.session_state.get('pokaz_wybor'):
+                if st.session_state.pokaz_wybor:
                     przod = st.checkbox("Przód", True, key='opt_przod')
                     tyl = st.checkbox("Tył", True, key='opt_tyl')
                     lewo = st.checkbox("Lewo", False, key='opt_lewo')
@@ -419,11 +420,12 @@ elif wybor == "Dach":
                             if prawo: st.session_state.okap_prawo = max(0, min(100, st.session_state.okap_prawo + delta))
                             st.session_state.pokaz_wybor = False
                             st.rerun()
-            # Reszta papy...
-            pasy_pod = math.ceil(szer_polaci / (st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad))
-            laczna_dl_pod = 2 * pasy_pod * dl_pol
+            # Obliczenia rolek
+            szer_efekt_pod = st.session_state.szerokosc_rolki_papa_podklad - st.session_state.zaklad_papa_podklad
+            pasy_pod = math.ceil(szer_polaci / szer_efekt_pod)
+            laczna_dl_pod = 2 * pasy_pod * dlugosc_polaci()
             rolki_pod = math.ceil(laczna_dl_pod / st.session_state.dlugosc_rolki_papa_podklad)
-            laczna_dl_w = 2 * pasy_w * dl_pol
+            laczna_dl_w = 2 * pasy_w * dlugosc_polaci()
             rolki_w = math.ceil(laczna_dl_w / st.session_state.dlugosc_rolki_papa_wierzch)
             st.write(f"**Papa podkładowa:** {rolki_pod} rolki")
             st.write(f"**Papa wierzchnia:** {rolki_w} rolki")
@@ -449,7 +451,7 @@ elif wybor == "Dach":
             st.write(f"**Gonty:** {math.ceil(pow_dach/3)} op.")
             st.write(f"**Masa bitumiczna:** {math.ceil(pow_dach/5)} tubek")
 
-        else:  # EPDM
+        else:
             st.subheader("EPDM")
             st.write(f"**Membrana:** {pow_dach:.1f} m²")
             st.write(f"**Klej kontaktowy:** {math.ceil(pow_dach/5)} l")
@@ -513,7 +515,8 @@ elif wybor == "Akcesoria":
 elif wybor == "Kosztorys":
     st.header("📊 Kosztorys zbiorczy")
     cena_drewna_m3 = st.session_state.cena_drewna_m3 if st.session_state.use_wlasna_cena else 1600.0
-    if st.session_state.poszycie_wew:
+    poszycie_wew_active = st.session_state.poszycie_wew
+    if poszycie_wew_active:
         cena_welna_gl = st.session_state.cena_welna_glowna if st.session_state.use_wlasna_cena_welna_glowna else 35.0
         if st.session_state.get('dodatkowa_izolacja', False):
             cena_welna_dod = st.session_state.cena_welna_dod if st.session_state.use_wlasna_cena_welna_dod else 25.0
@@ -541,12 +544,12 @@ elif wybor == "Kosztorys":
     pow_dach = pow_dachu()
 
     koszt_drewno = m3_drewna * cena_drewna_m3
-    koszt_welna_gl = pow_netto * cena_welna_gl if st.session_state.poszycie_wew else 0.0
-    koszt_welna_dod = pow_netto * cena_welna_dod if (st.session_state.poszycie_wew and st.session_state.get('dodatkowa_izolacja')) else 0.0
-    koszt_kantowki = mb_kant * cena_kant if (st.session_state.poszycie_wew and st.session_state.get('dodatkowa_izolacja')) else 0.0
-    koszt_osb_wew = pow_netto * cena_osb_wew if (st.session_state.poszycie_wew and st.session_state.get('uzyj_osb_wew', False)) else 0.0
-    koszt_gk = pow_netto * cena_gk if (st.session_state.poszycie_wew and st.session_state.get('uzyj_gk_wew', False)) else 0.0
-    koszt_paro = pow_netto * cena_paro if st.session_state.poszycie_wew else 0.0
+    koszt_welna_gl = pow_netto * cena_welna_gl if poszycie_wew_active else 0.0
+    koszt_welna_dod = pow_netto * cena_welna_dod if (poszycie_wew_active and st.session_state.get('dodatkowa_izolacja')) else 0.0
+    koszt_kantowki = mb_kant * cena_kant if (poszycie_wew_active and st.session_state.get('dodatkowa_izolacja')) else 0.0
+    koszt_osb_wew = pow_netto * cena_osb_wew if (poszycie_wew_active and st.session_state.get('uzyj_osb_wew', False)) else 0.0
+    koszt_gk = pow_netto * cena_gk if (poszycie_wew_active and st.session_state.get('uzyj_gk_wew', False)) else 0.0
+    koszt_paro = pow_netto * cena_paro if poszycie_wew_active else 0.0
     koszt_osb_zew = pow_netto * cena_osb_zew
     koszt_wiatro = pow_netto * 1.1 * cena_wiatro
 
