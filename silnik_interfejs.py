@@ -1,40 +1,52 @@
 import streamlit as st
 
-st.title("Inżynier Szkieletowy - Prototyp v1.0")
+st.set_page_config(layout="wide")
+st.title("Inżynier Szkieletowy - Modułowy Pro")
 
-# 1. Zakładki dla rozdziałów
-tab_projekt, tab_sciany, tab_podloga, tab_dach = st.tabs(["Projekt", "Ściany", "Podłoga", "Dach"])
+# --- Inicjalizacja danych dynamicznych ---
+if 'okna' not in st.session_state:
+    st.session_state.okna = []
 
-# Inicjalizacja słownika wyników
-if 'koszty' not in st.session_state:
-    st.session_state.koszty = {"Ściany": 0.0, "Podłoga": 0.0, "Dach": 0.0}
+# --- 1. Moduł: Geometria ---
+with st.sidebar:
+    st.header("1. Geometria")
+    wys = st.slider("Wysokość (cm)", 200, 500, 250)
+    szer = st.slider("Szerokość (cm)", 200, 1000, 600)
+    dlug = st.slider("Długość (cm)", 200, 1500, 800)
+    
+    st.subheader("Otwory")
+    if st.button("Dodaj okno"):
+        st.session_state.okna.append({'szer': 100, 'wys': 100})
+    
+    for i, okno in enumerate(st.session_state.okna):
+        col1, col2 = st.columns(2)
+        okno['szer'] = col1.number_input(f"Szer. okna {i+1}", value=okno['szer'])
+        okno['wys'] = col2.number_input(f"Wys. okna {i+1}", value=okno['wys'])
 
-with tab_projekt:
-    st.header("Parametry ogólne budynku")
-    szerokosc = st.number_input("Szerokość (m)", value=6.0)
-    dlugosc = st.number_input("Długość (m)", value=8.0)
+# --- 2. Zakładki ---
+tab1, tab2, tab3, tab4 = st.tabs(["Konstrukcja", "Poszycia", "Akcesoria", "Kosztorys"])
 
-with tab_sciany:
-    st.header("Moduł: Ściany")
-    sciana_A = st.number_input("Powierzchnia Ściany A (m2)", value=15.0)
-    sciana_B = st.number_input("Powierzchnia Ściany B (m2)", value=15.0)
-    # Symulacja obliczeń
-    st.session_state.koszty["Ściany"] = (sciana_A + sciana_B) * 50  # Przykładowy przelicznik
+with tab1:
+    st.header("Konstrukcja")
+    rodzaj_drewna = st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"])
+    dlugosc_desek = st.number_input("Dostępne długości desek (m)", value=5.0)
+    procent_odpadu = st.slider("Procent resztek/odpadu (%)", 0, 30, 15)
 
-with tab_podloga:
-    st.header("Moduł: Podłoga")
-    pow_p = st.number_input("Powierzchnia podłogi (m2)", value=szerokosc * dlugosc)
-    st.session_state.koszty["Podłoga"] = pow_p * 40
+with tab2:
+    st.header("Poszycie i Izolacja")
+    st.checkbox("Poszycie wewnętrzne")
+    # Tu później dodamy logikę wyboru z listy produktów
 
-with tab_dach:
-    st.header("Moduł: Dach")
-    st.write("Logika dachu w trakcie implementacji...")
-    st.session_state.koszty["Dach"] = 2000.0
+with tab3:
+    st.header("Akcesoria i Łączniki")
+    st.write("Wkręty Klimas, taśmy, kątowniki...")
 
-# 3. Podsumowanie (zawsze widoczne)
-st.divider()
-st.subheader("Podsumowanie projektu")
-suma = sum(st.session_state.koszty.values())
-st.metric("Łączny szacunkowy koszt", f"{suma:,.2f} PLN")
-st.write("Rozbicie kosztów:", st.session_state.koszty)
+with tab4:
+    st.header("Analiza Kosztów")
+    st.write("Tabela zbiorcza...")
 
+# --- Logika obliczeniowa ---
+# Tutaj będziemy "mielić" dane ze wszystkich zakładek
+obw_scian = (szer + dlug) * 2
+pow_scian = (obw_scian * wys) / 10000 
+st.sidebar.write(f"Powierzchnia ścian: {pow_scian:.2f} m2")
