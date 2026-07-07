@@ -1,69 +1,68 @@
 import streamlit as st
 import math
 
-# Konfiguracja strony
+# Konfiguracja
 st.set_page_config(layout="wide")
 st.title("Inżynier Szkieletowy - Modułowy Pro")
 
-# --- Inicjalizacja danych globalnych ---
-if 'okna' not in st.session_state:
-    st.session_state.okna = []
-if 'geo' not in st.session_state:
-    st.session_state.geo = {'wys': 250, 'szer': 600, 'dlug': 800}
+# --- Inicjalizacja ---
+if 'okna' not in st.session_state: st.session_state.okna = []
+if 'geo' not in st.session_state: st.session_state.geo = {'wys': 250, 'szer': 600, 'dlug': 800}
+if 'tab' not in st.session_state: st.session_state.tab = "Geometria"
 
-# --- Zakładki ---
-tab_geo, tab_dach_konstr, tab_dach_wyk, tab_konstr_scian, tab_posz, tab_akc, tab_koszt = st.tabs([
-    "1. Geometria", "2. Konstr. Dachu", "3. Wykończenie Dachu", "4. Konstr. Ścian", "5. Poszycia", "6. Akcesoria", "7. Kosztorys"
-])
+# --- Nawigacja (Kafelki) ---
+menu = ["Geometria", "Konstr. Dachu", "Wykończenie Dachu", "Konstr. Ścian", "Wykończenie Ścian", "Akcesoria", "Kosztorys"]
+cols = st.columns(len(menu))
+for i, name in enumerate(menu):
+    if cols[i].button(name, use_container_width=True): st.session_state.tab = name
 
-# --- MODUŁ 1: GEOMETRIA ---
-with tab_geo:
-    st.header("1. Wymiary Budynku")
+st.divider()
+
+# --- LOGIKA MODUŁÓW ---
+
+if st.session_state.tab == "Geometria":
+    st.header("1. Geometria Budynku")
     col1, col2 = st.columns(2)
     st.session_state.geo['wys'] = col1.number_input("Wysokość (cm)", 200, 500, st.session_state.geo['wys'])
     st.session_state.geo['szer'] = col1.number_input("Szerokość (cm)", 200, 1000, st.session_state.geo['szer'])
     st.session_state.geo['dlug'] = col1.number_input("Długość (cm)", 200, 1500, st.session_state.geo['dlug'])
-    
-    st.subheader("Otwory (Okna i Drzwi)")
-    if st.button("Dodaj otwór", key="add_win"):
-        st.session_state.okna.append({'szer': 90, 'wys': 120})
-    
-    suma_otworow = 0
-    for i, okno in enumerate(st.session_state.okna):
-        c1, c2, c3 = st.columns([2, 2, 1])
-        okno['szer'] = c1.number_input(f"Szer. otworu {i+1} (cm)", value=okno['szer'], key=f"s_{i}")
-        okno['wys'] = c2.number_input(f"Wys. otworu {i+1} (cm)", value=okno['wys'], key=f"w_{i}")
-        suma_otworow += (okno['szer'] * okno['wys']) / 10000 
-        if c3.button("Usuń", key=f"del_{i}"):
-            st.session_state.okna.pop(i)
-            st.rerun()
 
-    pow_podlogi = (st.session_state.geo['szer'] * st.session_state.geo['dlug']) / 10000
-    pow_scian_netto = (((st.session_state.geo['szer'] + st.session_state.geo['dlug']) * 2) * (st.session_state.geo['wys'] / 100)) - suma_otworow
-    
-    st.divider()
-    st.metric("Powierzchnia podłogi", f"{pow_podlogi:.2f} m²")
-    st.metric("Powierzchnia ścian netto", f"{pow_scian_netto:.2f} m²")
-
-# --- MODUŁ 2: KONSTRUKCJA DACHU ---
-with tab_dach_konstr:
+elif st.session_state.tab == "Konstr. Dachu":
     st.header("2. Konstrukcja Dachu")
-    rozstaw = st.selectbox("Rozstaw belek (cm)", [30, 40, 60], key="d_rozstaw")
-    kat = st.slider("Kąt nachylenia (°)", 0, 45, 20, key="d_kat")
-    okap_a = st.slider("Okap przód/tył (cm)", 0, 100, 20, key="d_okap_a")
-    okap_c = st.slider("Okap lewo/prawo (cm)", 0, 100, 20, key="d_okap_c")
-    
-    pow_dachu = (((st.session_state.geo['szer'] + 2*okap_c) * (st.session_state.geo['dlug'] + 2*okap_a)) / 10000) / math.cos(math.radians(kat))
-    st.metric("Powierzchnia dachu", f"{pow_dachu:.2f} m²")
+    rozstaw = st.selectbox("Rozstaw belek (cm)", [30, 40, 60])
+    kat = st.slider("Kąt nachylenia (°)", 0, 45, 20)
+    c1, c2 = st.columns(2)
+    o_przod = c1.slider("Okap przód (cm)", 0, 100, 20)
+    o_tyl = c1.slider("Okap tył (cm)", 0, 100, 20)
+    o_lewo = c2.slider("Okap lewo (cm)", 0, 100, 20)
+    o_prawo = c2.slider("Okap prawo (cm)", 0, 100, 20)
+    st.info("Obliczenia powierzchni dachu w toku...")
 
-# --- MODUŁ 3: WYKOŃCZENIE DACHU ---
-with tab_dach_wyk:
+elif st.session_state.tab == "Wykończenie Dachu":
     st.header("3. Wykończenie Dachu")
-    pokrycie = st.selectbox("Wybierz pokrycie", ["Papa", "Blachodachówka", "EPDM"], key="d_pokrycie")
-    st.info(f"Wybrano: {pokrycie}. Logika materiałowa w budowie.")
+    pokrycie = st.selectbox("Wybierz pokrycie", ["Papa", "Blachodachówka", "EPDM"])
+    st.write(f"Konfiguracja dla: {pokrycie}")
 
-# --- Pasek boczny ---
+elif st.session_state.tab == "Konstr. Ścian":
+    st.header("4. Konstrukcja Ścian")
+    przekroj = st.selectbox("Przekrój słupków", ["95x45", "145x45", "195x45"])
+    st.write("Tu dodamy logikę słupków i podwalin.")
+
+elif st.session_state.tab == "Wykończenie Ścian":
+    st.header("5. Wykończenie Ścian")
+    st.write("Wybór OSB, wiatroizolacji, fasady wewnętrznej/zewnętrznej.")
+
+elif st.session_state.tab == "Akcesoria":
+    st.header("6. Akcesoria i Łączniki")
+    st.write("Wkręty, taśmy, kątowniki.")
+
+elif st.session_state.tab == "Kosztorys":
+    st.header("7. Analiza Kosztów")
+    st.write("Tabela zbiorcza wszystkich modułów.")
+
+# --- Podsumowanie w bocznym pasku ---
 with st.sidebar:
-    st.header("Podsumowanie")
-    st.metric("Ściany netto", f"{pow_scian_netto:.2f} m²")
-    st.metric("Dach", f"{pow_dachu:.2f} m²")
+    st.header("Szybki podgląd")
+    pow_pod = (st.session_state.geo['szer'] * st.session_state.geo['dlug']) / 10000
+    st.metric("Pow. podłogi", f"{pow_pod:.2f} m²")
+    st.write("Nawiguj między zakładkami, aby uzupełnić dane.")
