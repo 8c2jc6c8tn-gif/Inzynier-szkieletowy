@@ -846,7 +846,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
             <h3 style="margin:0; color:white;">🔴 Mniej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
-            <p style="font-size:14px; margin:4px 0;">λ={sm_mniej:.0f} | wyb. {wyb_mniej:.0f}%</p>
+            <p style="font-size:16px; margin:4px 0;">Smukłość {sm_mniej:.0f} | Wyboczenie {wyb_mniej:.0f}%</p>
             <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
@@ -855,7 +855,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
             <h3 style="margin:0; color:white;">🔴 Mniej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
-            <p style="font-size:14px; margin:4px 0;">λ={sm_mniej:.0f} | wyb. {wyb_mniej:.0f}%</p>
+            <p style="font-size:16px; margin:4px 0;">Smukłość {sm_mniej:.0f} | Wyboczenie {wyb_mniej:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -866,7 +866,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
             <h3 style="margin:0; color:white;">🟠 Standard</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
-            <p style="font-size:14px; margin:4px 0;">λ={sm_std:.0f} | wyb. {wyb_std:.0f}%</p>
+            <p style="font-size:16px; margin:4px 0;">Smukłość {sm_std:.0f} | Wyboczenie {wyb_std:.0f}%</p>
             <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
@@ -875,7 +875,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
             <h3 style="margin:0; color:white;">🟠 Standard</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
-            <p style="font-size:14px; margin:4px 0;">λ={sm_std:.0f} | wyb. {wyb_std:.0f}%</p>
+            <p style="font-size:16px; margin:4px 0;">Smukłość {sm_std:.0f} | Wyboczenie {wyb_std:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -886,7 +886,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
             <h3 style="margin:0; color:white;">🔵 Więcej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
-            <p style="font-size:14px; margin:4px 0;">λ={sm_wiecej:.0f} | wyb. {wyb_wiecej:.0f}%</p>
+            <p style="font-size:16px; margin:4px 0;">Smukłość {sm_wiecej:.0f} | Wyboczenie {wyb_wiecej:.0f}%</p>
             <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
@@ -895,7 +895,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
             <h3 style="margin:0; color:white;">🔵 Więcej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
-            <p style="font-size:14px; margin:4px 0;">λ={sm_wiecej:.0f} | wyb. {wyb_wiecej:.0f}%</p>
+            <p style="font-size:16px; margin:4px 0;">Smukłość {sm_wiecej:.0f} | Wyboczenie {wyb_wiecej:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
