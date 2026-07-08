@@ -675,6 +675,7 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
 def create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
                liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
                smuklosc, szansa_wyboczenia, punkty_final):
+    from io import BytesIO
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=10)
@@ -719,9 +720,9 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw
         odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2)*100
         pdf.cell(200, 5, txt=f"{i+1} -> {i+2}: {odl:.0f} cm", ln=True)
 
-    pdf_path = "raport_fundamenty.pdf"
-    pdf.output(pdf_path)
-    return pdf_path
+    # Zapis do BytesIO, aby uniknac problemow z sciezka
+    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+    return pdf_bytes
 
 
 # ---------- MODUŁ FUNDAMENTY ----------
