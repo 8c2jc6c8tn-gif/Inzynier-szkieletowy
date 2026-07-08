@@ -606,27 +606,103 @@ def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
 
 
 # ---------- NOWY MODUŁ: FUNDAMENTY (PRZEPROJEKTOWANY) ----------
+# ---------- FUNKCJE POMOCNICZE ----------
+def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
+    def slupki_na_boku(dlugosc_m, rozstaw_cm):
+        if dlugosc_m <= 0.01:
+            return []
+        max_przesel = max(1, int(dlugosc_m * 100 / rozstaw_cm))
+        for n in range(max_przesel, 0, -1):
+            if dlugosc_m / n >= rozstaw_cm / 100:
+                krok = dlugosc_m / n
+                return [i * krok for i in range(1, n)]
+        return []
+
+    punkty = []
+    for x in (0, szer_m):
+        for y in (0, dlug_m):
+            punkty.append({'x': x, 'y': y, 'typ': 'narozny'})
+    for y in (0, dlug_m):
+        for x in slupki_na_boku(szer_m, rozstaw_cm):
+            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
+    for x in (0, szer_m):
+        for y in slupki_na_boku(dlug_m, rozstaw_cm):
+            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
+    return punkty
+
+
+def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
+    if liczba_rzedow <= 0:
+        return punkty
+    for i in range(1, liczba_rzedow + 1):
+        y = dlug_m * i / (liczba_rzedow + 1)
+        max_przesel = max(1, int(szer_m * 100 / rozstaw_cm))
+        for n in range(max_przesel, 0, -1):
+            if szer_m / n >= rozstaw_cm / 100:
+                krok = szer_m / n
+                for j in range(1, n):
+                    x = j * krok
+                    if not any(abs(p['x']-x)<0.01 and abs(p['y']-y)<0.01 for p in punkty):
+                        punkty.append({'x': x, 'y': y, 'typ': 'poprzeczny'})
+                break
+    return punkty
+
+
+def rysuj_linie_wymiarowe(svg, punkty, szer_m, dlug_m, skala, szer_px, dlug_px):
+    """Zwraca SVG z dodanymi liniami wymiarowymi na wszystkich bokach."""
+    def rysuj_bok(punkty, bok):
+        nonlocal svg
+        if bok == 'dol':
+            slupki = sorted([p for p in punkty if abs(p['y']) < 0.01], key=lambda p: p['x'])
+            base_y = 60 + dlug_px + 25
+        elif bok == 'gora':
+            slupki = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.01], key=lambda p: p['x'])
+            base_y = 60 - 20
+        elif bok == 'lewo':
+            slupki = sorted([p for p in punkty if abs(p['x']) < 0.01], key=lambda p: p['y'])
+            base_x = 60 - 30
+        elif bok == 'prawo':
+            slupki = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.01], key=lambda p: p['y'])
+            base_x = 60 + szer_px + 15
+
+        for i in range(len(slupki) - 1):
+            if bok in ('dol', 'gora'):
+                x1 = 60 + slupki[i]['x'] * skala
+                x2 = 60 + slupki[i+1]['x'] * skala
+                odl = slupki[i+1]['x'] - slupki[i]['x']
+                svg += f'<line x1="{x1}" y1="{base_y}" x2="{x2}" y2="{base_y}" stroke="gray" stroke-width="1"/>'
+                svg += f'<text x="{(x1+x2)/2}" y="{base_y+12}" text-anchor="middle" font-size="9">{odl*100:.0f} cm</text>'
+            else:
+                y1 = 60 + (dlug_m - slupki[i]['y']) * skala
+                y2 = 60 + (dlug_m - slupki[i+1]['y']) * skala
+                odl = slupki[i+1]['y'] - slupki[i]['y']
+                svg += f'<line x1="{base_x}" y1="{y1}" x2="{base_x}" y2="{y2}" stroke="gray" stroke-width="1"/>'
+                svg += f'<text x="{base_x+15}" y="{(y1+y2)/2+4}" font-size="9">{odl*100:.0f} cm</text>'
+
+    for bok in ['dol', 'gora', 'lewo', 'prawo']:
+        rysuj_bok(punkty, bok)
+    return svg
+
+
+# ---------- MODUŁ FUNDAMENTY ----------
 def fundamenty_tab():
     st.header("🏛️ Fundamenty – słupki betonowe")
 
-    # Automatyczne pobranie wymiarów
     szer_m = st.session_state.szer / 100
     dlug_m = st.session_state.dlug / 100
     obwod_m = obwod_scian()
 
     st.info(f"📐 Automatycznie pobrano wymiary budynku: **{szer_m:.2f} × {dlug_m:.2f} m** (obwód: {obwod_m:.1f} m)")
 
-    # ---- OBCIĄŻENIA (poprawione, realistyczne dla lekkiego szkieletu) ----
+    # Obciążenia
     pow_dach = pow_dachu()
-    ciezar_dach = pow_dach * 0.5       # kN/m² – lekki dach szkieletowy
-    ciezar_scian = obwod_m * (st.session_state.wys / 100) * 0.35  # kN
-    ciezar_stropu = pow_podlogi() * 0.4   # kN
-    obciazenie_snieg = pow_dach * 0.5     # kN/m² (strefa 2, dach stromy)
+    ciezar_dach = pow_dach * 0.5
+    ciezar_scian = obwod_m * (st.session_state.wys / 100) * 0.35
+    ciezar_stropu = pow_podlogi() * 0.4
+    obciazenie_snieg = pow_dach * 0.5
     calkowite_kn = ciezar_dach + ciezar_scian + ciezar_stropu + obciazenie_snieg
 
     st.markdown("---")
-
-    # ---- GRUNT ----
     st.subheader("🔍 Rodzaj podłoża")
     grunty = {
         "Piasek luźny": 100,
@@ -643,7 +719,7 @@ def fundamenty_tab():
 
     with st.expander("🧪 Jak sprawdzić rodzaj gruntu? (test butelkowy)"):
         st.markdown("""
-        **Test butelkowy – prosta metoda:**
+        **Test butelkowy:**
         1. Pobierz ziemię z głębokości ok. **80–100 cm**.
         2. Wsyp do butelki (½ wysokości), dolej wody, wstrząśnij.
         3. Po 24 h odczytaj: **piasek** opada szybko (woda klarowna), **glina** – woda mętna, osad zbity.
@@ -655,22 +731,19 @@ def fundamenty_tab():
     with col_f2:
         srednica_mm = st.slider("Średnica słupka (mm)", 60, 250, value=st.session_state.fundament_srednica, step=10, key='fundament_srednica')
 
-    # ---- ROZSTAW SŁUPKÓW ----
     st.subheader("📏 Rozstaw słupków obwodowych")
     rozstaw_cm = st.slider("Odległość między słupkami (cm)", 60, 250, 
                            value=st.session_state.fundament_rozstaw, step=10, key='fundament_rozstaw')
 
-    # ---- SŁUPKI POPRZECZNE ----
     st.subheader("📏 Słupki poprzeczne (wewnętrzne)")
     liczba_rzedow = st.radio(
-        "Liczba rzędów poprzecznych (np. pod ścianami nośnymi)",
+        "Liczba rzędów poprzecznych",
         [0, 1, 2],
         format_func=lambda x: "Brak" if x == 0 else f"{x} rząd(y)" if x == 1 else f"{x} rzędy",
         horizontal=True,
         key='fundament_liczba_rzedow'
     )
 
-    # ---- GENEROWANIE WARIANTÓW ----
     rozstaw_mniej = rozstaw_cm + 30
     rozstaw_wiecej = max(40, rozstaw_cm - 20)
 
@@ -683,7 +756,6 @@ def fundamenty_tab():
     punkty_mniej = generuj_wariant(rozstaw_mniej)
     punkty_wiecej = generuj_wariant(rozstaw_wiecej)
 
-    # ---- OBLICZENIA NOŚNOŚCI ----
     def oblicz_wariant(punkty):
         ile = len(punkty)
         obc = calkowite_kn / ile if ile else 1e9
@@ -691,12 +763,10 @@ def fundamenty_tab():
         pole = math.pi * r * r
         obwod_sl = 2 * math.pi * r
         h = glebokosc_cm / 100
-        # Nośność podstawy (kN)
         N_podst = pole * nosnosc_gruntu_kpa
-        # Nośność pobocznicy (tarcie) – uproszczone wg Eurokodu 7
         N_tarcie = obwod_sl * h * nosnosc_gruntu_kpa * 0.15
         N_calk = N_podst + N_tarcie
-        N_dop = N_calk / 2.0   # wsp. bezpieczeństwa
+        N_dop = N_calk / 2.0
         zapas = ((N_dop / obc) - 1) * 100 if obc > 0 else 999
         return ile, obc, N_dop, zapas
 
@@ -704,11 +774,7 @@ def fundamenty_tab():
     ile_mniej, obc_mniej, Ndop_mniej, zapas_mniej = oblicz_wariant(punkty_mniej)
     ile_wiecej, obc_wiecej, Ndop_wiecej, zapas_wiecej = oblicz_wariant(punkty_wiecej)
 
-    # ---- BLOK OPTYMALIZACJI ----
-    st.markdown("---")
-    st.subheader("⚙️ Optymalizacja liczby słupków")
-
-    # Ustalamy zalecany wariant
+    # Ustalenie zalecanego wariantu
     if zapas_std >= 15:
         zalecany = "standard"
     elif zapas_mniej >= 10 and zapas_mniej < 40:
@@ -718,49 +784,61 @@ def fundamenty_tab():
     else:
         zalecany = "standard"
 
+    st.markdown("---")
+    st.subheader("⚙️ Optymalizacja liczby słupków")
+
     col_o1, col_o2, col_o3 = st.columns(3)
 
     with col_o1:
-        kolor = "red"
         if zalecany == "mniej":
-            st.markdown(f"<div style='background-color:#d4edda; padding:8px; border-radius:10px; border:2px solid green;'>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background-color:#2e7d32; padding:10px; border-radius:10px; text-align:center; color:white;">
+            <h4 style="margin:0; color:white;">🔴 Mniej słupków</h4>
+            <p style="margin:5px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
+            <span style="background:white; color:#2e7d32; padding:2px 10px; border-radius:5px; font-weight:bold;">✅ ZALECANE</span>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.markdown(f"<div style='padding:8px; border-radius:10px; border:2px solid {kolor};'>", unsafe_allow_html=True)
-        st.markdown(f"🔴 **Mniej słupków**")
-        st.write(f"- Ilość: **{ile_mniej}**")
-        st.write(f"- Obc./sł.: {obc_mniej:.1f} kN")
-        st.write(f"- Zapas: **{zapas_mniej:.0f}%**")
-        if zalecany == "mniej":
-            st.success("✅ Zalecane")
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background-color:#f8f9fa; padding:10px; border-radius:10px; text-align:center; border:2px solid red;">
+            <h4 style="margin:0; color:red;">🔴 Mniej słupków</h4>
+            <p style="margin:5px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     with col_o2:
-        kolor = "orange"
         if zalecany == "standard":
-            st.markdown(f"<div style='background-color:#d4edda; padding:8px; border-radius:10px; border:2px solid green;'>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background-color:#2e7d32; padding:10px; border-radius:10px; text-align:center; color:white;">
+            <h4 style="margin:0; color:white;">🟠 Standard</h4>
+            <p style="margin:5px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
+            <span style="background:white; color:#2e7d32; padding:2px 10px; border-radius:5px; font-weight:bold;">✅ ZALECANE</span>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.markdown(f"<div style='padding:8px; border-radius:10px; border:2px solid {kolor};'>", unsafe_allow_html=True)
-        st.markdown(f"🟠 **Standard**")
-        st.write(f"- Ilość: **{ile_std}**")
-        st.write(f"- Obc./sł.: {obc_std:.1f} kN")
-        st.write(f"- Zapas: **{zapas_std:.0f}%**")
-        if zalecany == "standard":
-            st.success("✅ Zalecane")
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background-color:#f8f9fa; padding:10px; border-radius:10px; text-align:center; border:2px solid orange;">
+            <h4 style="margin:0; color:orange;">🟠 Standard</h4>
+            <p style="margin:5px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     with col_o3:
-        kolor = "blue"
         if zalecany == "wiecej":
-            st.markdown(f"<div style='background-color:#d4edda; padding:8px; border-radius:10px; border:2px solid green;'>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background-color:#2e7d32; padding:10px; border-radius:10px; text-align:center; color:white;">
+            <h4 style="margin:0; color:white;">🔵 Więcej słupków</h4>
+            <p style="margin:5px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
+            <span style="background:white; color:#2e7d32; padding:2px 10px; border-radius:5px; font-weight:bold;">✅ ZALECANE</span>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.markdown(f"<div style='padding:8px; border-radius:10px; border:2px solid {kolor};'>", unsafe_allow_html=True)
-        st.markdown(f"🔵 **Więcej słupków**")
-        st.write(f"- Ilość: **{ile_wiecej}**")
-        st.write(f"- Obc./sł.: {obc_wiecej:.1f} kN")
-        st.write(f"- Zapas: **{zapas_wiecej:.0f}%**")
-        if zalecany == "wiecej":
-            st.success("✅ Zalecane")
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background-color:#f8f9fa; padding:10px; border-radius:10px; text-align:center; border:2px solid blue;">
+            <h4 style="margin:0; color:blue;">🔵 Więcej słupków</h4>
+            <p style="margin:5px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     wybor = st.radio(
         "Wybierz wariant:",
@@ -788,52 +866,18 @@ def fundamenty_tab():
     skala = 450 / max_wymiar if max_wymiar > 0 else 50
     szer_px = szer_m * skala
     dlug_px = dlug_m * skala
-    promien = 10  # duże kropki
+    promien = 10
 
-    # Kolory wariantów
     kolory_wariantow = {"mniej": "red", "standard": "orange", "wiecej": "blue"}
     kolor_slupkow = kolory_wariantow[wybor]
 
     svg = f'<svg width="{szer_px + 120}" height="{dlug_px + 120}" xmlns="http://www.w3.org/2000/svg">'
     svg += f'<rect x="60" y="60" width="{szer_px}" height="{dlug_px}" fill="#f0f0f0" stroke="black" stroke-width="2"/>'
 
-    # Linie wymiarowe – zbieramy sąsiednie słupki na każdym boku
-    def rysuj_linie_wymiarowe(punkty, bok, offset_x, offset_y, orientacja):
-        # bok: 'dol', 'gora', 'lewo', 'prawo'
-        if bok == 'dol':
-            slupki = sorted([p for p in punkty if abs(p['y']) < 0.01], key=lambda p: p['x'])
-            base_y = 60 + dlug_px + 25
-        elif bok == 'gora':
-            slupki = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.01], key=lambda p: p['x'])
-            base_y = 60 - 20
-        elif bok == 'lewo':
-            slupki = sorted([p for p in punkty if abs(p['x']) < 0.01], key=lambda p: p['y'])
-            base_x = 60 - 30
-        elif bok == 'prawo':
-            slupki = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.01], key=lambda p: p['y'])
-            base_x = 60 + szer_px + 15
+    # Linie wymiarowe
+    svg = rysuj_linie_wymiarowe(svg, punkty_final, szer_m, dlug_m, skala, szer_px, dlug_px)
 
-        for i in range(len(slupki) - 1):
-            if bok in ('dol', 'gora'):
-                x1 = 60 + slupki[i]['x'] * skala
-                x2 = 60 + slupki[i+1]['x'] * skala
-                odl = slupki[i+1]['x'] - slupki[i]['x']
-                svg_line = f'<line x1="{x1}" y1="{base_y}" x2="{x2}" y2="{base_y}" stroke="gray" stroke-width="1"/>'
-                svg_text = f'<text x="{(x1+x2)/2}" y="{base_y+12}" text-anchor="middle" font-size="9">{odl*100:.0f} cm</text>'
-            else:
-                y1 = 60 + (dlug_m - slupki[i]['y']) * skala
-                y2 = 60 + (dlug_m - slupki[i+1]['y']) * skala
-                odl = slupki[i+1]['y'] - slupki[i]['y']
-                svg_line = f'<line x1="{base_x}" y1="{y1}" x2="{base_x}" y2="{y2}" stroke="gray" stroke-width="1"/>'
-                svg_text = f'<text x="{base_x+15}" y="{(y1+y2)/2+4}" font-size="9">{odl*100:.0f} cm</text>'
-            svg += svg_line + svg_text
-
-    rysuj_linie_wymiarowe(punkty_final, 'dol', 0, 30, 'pozioma')
-    rysuj_linie_wymiarowe(punkty_final, 'gora', 0, -20, 'pozioma')
-    rysuj_linie_wymiarowe(punkty_final, 'lewo', -30, 0, 'pionowa')
-    rysuj_linie_wymiarowe(punkty_final, 'prawo', 20, 0, 'pionowa')
-
-    # Rysowanie słupków
+    # Słupki
     for i, p in enumerate(punkty_final):
         cx = 60 + p['x'] * skala
         cy = 60 + (dlug_m - p['y']) * skala
@@ -843,25 +887,29 @@ def fundamenty_tab():
     svg += '</svg>'
     st.markdown(svg, unsafe_allow_html=True)
 
-    # ---- TABELA SŁUPKÓW ----
+    # Tabela
     st.subheader("📋 Lista słupków")
     tabela = []
     for i, p in enumerate(punkty_final):
         typ = "Narożny" if p['typ'] == 'narozny' else ("Poprzeczny" if p['typ'] == 'poprzeczny' else "Obwodowy")
         if i == 0:
-            odl_od_poprz = "-"
+            odl = "-"
         else:
             dx = p['x'] - punkty_final[i-1]['x']
             dy = p['y'] - punkty_final[i-1]['y']
-            odl_od_poprz = f"{math.sqrt(dx*dx + dy*dy)*100:.0f} cm"
-        tabela.append([i+1, typ, f"{p['x']:.2f}", f"{p['y']:.2f}", odl_od_poprz])
+            odl = f"{math.sqrt(dx*dx + dy*dy)*100:.0f} cm"
+        tabela.append([i+1, typ, f"{p['x']:.2f}", f"{p['y']:.2f}", odl])
 
-    st.table(
-        [["Nr", "Typ", "X (m)", "Y (m)", "Odległość od poprz."]] + tabela
+    st.table([["Nr", "Typ", "X (m)", "Y (m)", "Odległość od poprz."]] + tabela)
+
+    # Klauzula prawna
+    st.markdown("---")
+    st.warning(
+        "⚠️ **Uwaga prawna:** Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
+        "Wyniki mają charakter orientacyjny i **nie stanowią podstawy do wykonania fundamentów** bez konsultacji "
+        "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
+        "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
-
-    st.caption("Kolory słupków na rysunku odpowiadają wybranemu wariantowi (🔴 mniej, 🟠 standard, 🔵 więcej).")
-
   
 # Na końcu pliku zaktualizuj słownik zakładek (dodaj, jeśli nie ma)
 # zakladki_funkcje["🏛️ Fundamenty"] = fundamenty_tab
