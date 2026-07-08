@@ -978,11 +978,9 @@ def fundamenty_tab():
         for j in range(i+1, len(narozne)):
             p1 = narozne[i]
             p2 = narozne[j]
-            # sprawdzamy, czy są na tym samym boku
             if (abs(p1['x'] - p2['x']) < 0.001 or abs(p1['y'] - p2['y']) < 0.001):
                 odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2)*100
                 if 0.5 < odl < max(szer_m, dlug_m)*100+10:
-                    # znajdujemy numery indeksów
                     idx1 = punkty_final.index(p1) + 1
                     idx2 = punkty_final.index(p2) + 1
                     odleglosci_narozne.append((idx1, idx2, odl))
@@ -1004,14 +1002,13 @@ def fundamenty_tab():
             odleglosci_sasiednie.append((i+1, i+2, odl))
 
     if odleglosci_sasiednie:
-        col_odl = st.columns(4)
+        cols_odl = st.columns(3)
         for idx, (i, j, odl) in enumerate(odleglosci_sasiednie):
-            col = idx % 4
-            with col_odl[col]:
+            col = idx % 3
+            with cols_odl[col]:
                 st.write(f"{i} → {j}: {odl:.0f} cm")
     else:
         st.write("*Brak odległości do wyświetlenia.*")
-
     # Przycisk PDF
     st.markdown("---")
     if st.button("📄 Eksportuj raport do PDF"):
