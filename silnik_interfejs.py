@@ -557,6 +557,7 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE ----------
 # ---------- FUNKCJE POMOCNICZE ----------
 # ---------- FUNKCJE POMOCNICZE ----------
+# ---------- FUNKCJE POMOCNICZE ----------
 import math
 import base64
 from fpdf import FPDF
@@ -724,7 +725,6 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
     for p in punkty_final:
         cx = margines_x + p['x'] * skala_pdf
         cy = margines_y + (dlug_m - p['y']) * skala_pdf
-        # Zamiast circle rysujemy mały kwadracik 3x3 mm
         pdf.rect(cx - 1.5, cy - 1.5, 3, 3, 'D')
     dolne = sorted([p for p in punkty_final if abs(p['y']) < 0.001], key=lambda p: p['x'])
     y_linii = margines_y + dlug_px + 8
@@ -754,10 +754,16 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
 
     pdf.ln(5)
 
-    # Klauzula prawna
+    # Klauzula prawna – przepuszczona przez usun_polskie_znaki
+    klauzula = (
+        "Uwaga prawna: Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
+        "Wyniki maja charakter orientacyjny i nie stanowia podstawy do wykonania fundamentow bez konsultacji "
+        "z uprawnionym konstruktorem lub architektem. Ostateczna decyzje o liczbie, srednicy i glebokosci slupkow "
+        "nalezy powierzyc specjaliście posiadajacemu odpowiednie uprawnienia budowlane."
+    )
     pdf.set_font("Arial", 'I', 8)
-    klauzula = "Uwaga prawna: Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). Wyniki maja charakter orientacyjny i nie stanowia podstawy do wykonania fundamentow bez konsultacji z uprawnionym konstruktorem lub architektem. Ostateczna decyzje o liczbie, srednicy i glebokosci slupkow nalezy powierzyc specjaliście posiadajacemu odpowiednie uprawnienia budowlane."
-pdf.multi_cell(0, 5, txt=usun_polskie_znaki(klauzula))
+    pdf.multi_cell(0, 5, txt=usun_polskie_znaki(klauzula))
+
     return pdf.output(dest='S').encode('latin-1')
 
 
@@ -1039,7 +1045,7 @@ def fundamenty_tab():
         md_table = "| Start | Koniec | Odległość |\n|-------|--------|------------|\n"
         for i, j, odl in odleglosci_sasiednie:
             md_table += f"| {i} | {j} | {odl:.0f} cm |\n"
-        col1, col2, col3 = st.columns([1, 3, 1])
+        col1, col2, col3 = st.columns([1, 4, 1])
         with col2:
             st.markdown(md_table)
     else:
@@ -1065,6 +1071,9 @@ def fundamenty_tab():
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
+    
+
+
     
     
     
