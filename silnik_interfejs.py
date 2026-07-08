@@ -1,6 +1,9 @@
 import streamlit as st
 import math
-import uuid
+import base64
+from fpdf import FPDF
+import tempfile
+import os
 
 st.set_page_config(layout="wide", page_title="Inżynier Szkieletowy Pro")
 
