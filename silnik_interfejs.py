@@ -547,9 +547,12 @@ def kosztorys_tab():
 # ========== NOWY MODUŁ: FUNDAMENTY ==========
 # ---------- NOWA FUNKCJA POMOCNICZA ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
+# ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
+import math
+import base64
+from fpdf import FPDF
+import os
 
-# ---------- FUNKCJE POMOCNICZE ----------
-# ---------- FUNKCJE POMOCNICZE ----------
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
         if dlugosc_m <= 0.01:
@@ -593,26 +596,19 @@ def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
 
 
 def sortuj_slupki(punkty, szer_m, dlug_m):
-    # Zbieramy unikalne obwodowe (narozne + obwodowe) w kolejności: lewy dolny → prawy dolny → prawy górny → lewy górny
-    obwodowe = []
-    for p in punkty:
-        if p['typ'] in ('narozny', 'obwodowy'):
-            if not any(abs(p['x']-o['x'])<0.001 and abs(p['y']-o['y'])<0.001 for o in obwodowe):
-                obwodowe.append(p)
+    obwodowe = [p for p in punkty if p['typ'] in ('narozny', 'obwodowy')]
+    unikalne = []
+    for p in obwodowe:
+        if not any(abs(p['x']-u['x'])<0.001 and abs(p['y']-u['y'])<0.001 for u in unikalne):
+            unikalne.append(p)
 
-    # Sortujemy: najpierw dolna krawędź (y=0, rosnące x), potem prawa (x=szer_m, y>0 i y<dlug_m, rosnące y),
-    # potem górna (y=dlug_m, malejące x), potem lewa (x=0, y>0 i y<dlug_m, malejące y)
-    dol = sorted([p for p in obwodowe if abs(p['y']) < 0.001], key=lambda p: p['x'])
-    prawa = sorted([p for p in obwodowe if abs(p['x'] - szer_m) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: p['y'])
-    gora = sorted([p for p in obwodowe if abs(p['y'] - dlug_m) < 0.001], key=lambda p: -p['x'])
-    lewa = sorted([p for p in obwodowe if abs(p['x']) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: -p['y'])
+    dol = sorted([p for p in unikalne if abs(p['y']) < 0.001], key=lambda p: p['x'])
+    prawa = sorted([p for p in unikalne if abs(p['x'] - szer_m) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: p['y'])
+    gora = sorted([p for p in unikalne if abs(p['y'] - dlug_m) < 0.001], key=lambda p: -p['x'])
+    lewa = sorted([p for p in unikalne if abs(p['x']) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: -p['y'])
 
     unikalne_obwodowe = dol + prawa + gora + lewa
-
-    # Poprzeczne – sortujemy po y, potem x
-    poprzeczne = [p for p in punkty if p['typ'] == 'poprzeczny']
-    poprzeczne.sort(key=lambda p: (p['y'], p['x']))
-
+    poprzeczne = sorted([p for p in punkty if p['typ'] == 'poprzeczny'], key=lambda p: (p['y'], p['x']))
     return unikalne_obwodowe + poprzeczne
 
 
@@ -652,10 +648,62 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
     prawe = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.001], key=lambda p: p['y'])
     for i in range(len(prawe)-1):
         dodaj_odleglosci_dla_pary(prawe[i], prawe[i+1], 'prawo')
-
     return svg
 
 
+def create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
+               liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
+               smuklosc, szansa_wyboczenia, punkty_final):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=10)
+
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, txt="Raport - Fundamenty", ln=True, align='C')
+    pdf.ln(10)
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="Parametry budynku i gruntu", ln=True)
+    pdf.set_font("Arial", size=10)
+    pdf.cell(200, 6, txt=f"Wymiary: {szer_m:.2f} x {dlug_m:.2f} m", ln=True)
+    pdf.cell(200, 6, txt=f"Grunt: {wybrany_grunt}", ln=True)
+    pdf.cell(200, 6, txt=f"Glebokosc: {glebokosc_cm} cm, Srednica: {srednica_mm} mm", ln=True)
+    pdf.cell(200, 6, txt=f"Rozstaw obwodowy: {rozstaw_cm} cm, Rzedy poprzeczne: {liczba_rzedow}", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="Wyniki obliczen", ln=True)
+    pdf.set_font("Arial", size=10)
+    pdf.cell(200, 6, txt=f"Liczba slupkow: {ile_final}", ln=True)
+    pdf.cell(200, 6, txt=f"Obciazenie na slupek: {obc_final:.2f} kN", ln=True)
+    pdf.cell(200, 6, txt=f"Noscnosc dopuszczalna: {Ndop_final:.2f} kN", ln=True)
+    pdf.cell(200, 6, txt=f"Zapas nosci: {zapas_final:.0f}%", ln=True)
+    pdf.cell(200, 6, txt=f"Smuklosc: {smuklosc:.0f}, Szansa wyboczenia: {szansa_wyboczenia:.0f}%", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="Pozycje slupkow", ln=True)
+    pdf.set_font("Arial", size=9)
+    for i, p in enumerate(punkty_final):
+        typ = "N" if p['typ']=='narozny' else ("P" if p['typ']=='poprzeczny' else "O")
+        pdf.cell(200, 5, txt=f"{i+1}. {typ} (x={p['x']:.2f}, y={p['y']:.2f})", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(200, 10, txt="Odleglosci miedzy slupkami (cm)", ln=True)
+    pdf.set_font("Arial", size=9)
+    for i in range(len(punkty_final)-1):
+        p1 = punkty_final[i]
+        p2 = punkty_final[i+1]
+        odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2)*100
+        pdf.cell(200, 5, txt=f"{i+1} -> {i+2}: {odl:.0f} cm", ln=True)
+
+    pdf_path = "raport_fundamenty.pdf"
+    pdf.output(pdf_path)
+    return pdf_path
+
+
+# ---------- MODUŁ FUNDAMENTY ----------
 def fundamenty_tab():
     st.header("🏛️ Fundamenty – słupki betonowe")
 
@@ -748,11 +796,13 @@ def fundamenty_tab():
         N_calk = N_podst + N_tarcie
         N_dop = N_calk / 2.0
         zapas = ((N_dop / obc) - 1) * 100 if obc > 0 else 999
-        return ile, obc, N_dop, zapas
+        smuklosc = (2 * h) / (r / 2) if r > 0 else 0
+        szansa_wyboczenia = max(0, min(100, (smuklosc - 50) * 2))
+        return ile, obc, N_dop, zapas, smuklosc, szansa_wyboczenia
 
-    ile_std, obc_std, Ndop_std, zapas_std = oblicz_wariant(punkty_standard)
-    ile_mniej, obc_mniej, Ndop_mniej, zapas_mniej = oblicz_wariant(punkty_mniej)
-    ile_wiecej, obc_wiecej, Ndop_wiecej, zapas_wiecej = oblicz_wariant(punkty_wiecej)
+    ile_std, obc_std, Ndop_std, zapas_std, sm_std, wyb_std = oblicz_wariant(punkty_standard)
+    ile_mniej, obc_mniej, Ndop_mniej, zapas_mniej, sm_mniej, wyb_mniej = oblicz_wariant(punkty_mniej)
+    ile_wiecej, obc_wiecej, Ndop_wiecej, zapas_wiecej, sm_wiecej, wyb_wiecej = oblicz_wariant(punkty_wiecej)
 
     if zapas_std >= 15:
         zalecany = "standard"
@@ -832,16 +882,26 @@ def fundamenty_tab():
 
     if wybor == "mniej":
         punkty_final = punkty_mniej
-        ile_final = ile_mniej
+        ile_final, obc_final, Ndop_final, zapas_final, sm_final, wyb_final = ile_mniej, obc_mniej, Ndop_mniej, zapas_mniej, sm_mniej, wyb_mniej
     elif wybor == "wiecej":
         punkty_final = punkty_wiecej
-        ile_final = ile_wiecej
+        ile_final, obc_final, Ndop_final, zapas_final, sm_final, wyb_final = ile_wiecej, obc_wiecej, Ndop_wiecej, zapas_wiecej, sm_wiecej, wyb_wiecej
     else:
         punkty_final = punkty_standard
-        ile_final = ile_std
+        ile_final, obc_final, Ndop_final, zapas_final, sm_final, wyb_final = ile_std, obc_std, Ndop_std, zapas_std, sm_std, wyb_std
 
-    # Sortujemy słupki, aby numeracja była logiczna
     punkty_final = sortuj_slupki(punkty_final, szer_m, dlug_m)
+
+    # --- chmurka edukacyjna ---
+    with st.expander("📖 Jak interpretować wyniki?"):
+        st.markdown("""
+        **Liczba słupków** – im więcej, tym obciążenie na jeden słupek jest mniejsze, co zwiększa bezpieczeństwo, ale zwiększa koszty betonu i robocizny.  
+        **Obciążenie na słupek (kN)** – siła, jaką budynek wywiera na jeden słupek. Powinna być mniejsza niż nośność dopuszczalna słupka.  
+        **Nośność dopuszczalna (kN)** – maksymalne obciążenie, jakie słupek może bezpiecznie przenieść (z zapasem).  
+        **Zapas nośności (%)** – o ile procent nośność dopuszczalna przewyższa obciążenie. Zalecany zapas to **15–40%**. Poniżej 10% ryzyko przeciążenia; powyżej 50% – konstrukcja przewymiarowana (nieekonomiczna).  
+        **Smukłość** – stosunek długości wyboczeniowej do promienia bezwładności. Dla słupków fundamentowych bezpieczna smukłość to **40–60**. Powyżej 70 ryzyko wyboczenia gwałtownie rośnie.  
+        **Szansa wyboczenia (%)** – orientacyjny wskaźnik ryzyka wygięcia słupka pod obciążeniem. Wartości poniżej 5% są bezpieczne, 5–15% – akceptowalne, powyżej 15% – zalecane zwiększenie średnicy.  
+        """)
 
     st.markdown("---")
     st.subheader("🗺️ Rysunek fundamentu z wymiarami")
@@ -858,22 +918,17 @@ def fundamenty_tab():
 
     svg = f'<svg width="{szer_px + 80}" height="{dlug_px + 80}" xmlns="http://www.w3.org/2000/svg">'
     svg += f'<rect x="40" y="40" width="{szer_px}" height="{dlug_px}" fill="#f9f9f9" stroke="black" stroke-width="2"/>'
-
     svg = rysuj_odleglosci_na_rysunku(svg, punkty_final, szer_m, dlug_m, skala)
-
     for i, p in enumerate(punkty_final):
         cx = 40 + p['x'] * skala
         cy = 40 + (dlug_m - p['y']) * skala
         svg += f'<circle cx="{cx}" cy="{cy}" r="{promien}" fill="{kolor_slupkow}" stroke="black" stroke-width="1"/>'
         svg += f'<text x="{cx}" y="{cy+3}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">{i+1}</text>'
-
     svg += '</svg>'
     st.markdown(svg, unsafe_allow_html=True)
 
-    # ---- TABELA ODLEGŁOŚCI ----
+    # Tabela odległości
     st.subheader("📋 Odległości pomiędzy słupkami")
-
-    # Odległości między kolejnymi słupkami w posortowanej liście
     odleglosci_sasiednie = []
     for i in range(len(punkty_final) - 1):
         p1 = punkty_final[i]
@@ -883,56 +938,37 @@ def fundamenty_tab():
         odl = math.sqrt(dx*dx + dy*dy) * 100
         if odl > 0.5:
             odleglosci_sasiednie.append((i+1, i+2, odl))
-
-    # Odległości w rzędach poprzecznych (między słupkami o tym samym y)
-    poprzeczne = [p for p in punkty_final if p['typ'] == 'poprzeczny']
-    odleglosci_poprzeczne = []
-    if poprzeczne:
-        # Grupujemy według y
-        grupy = {}
-        for p in poprzeczne:
-            y_rounded = round(p['y'], 6)
-            if y_rounded not in grupy:
-                grupy[y_rounded] = []
-            grupy[y_rounded].append(p)
-        for y_rounded, lista in grupy.items():
-            lista.sort(key=lambda p: p['x'])
-            for i in range(len(lista)-1):
-                p1 = lista[i]
-                p2 = lista[i+1]
-                odl = (p2['x'] - p1['x']) * 100
-                if odl > 0.5:
-                    # Znajdujemy indeksy tych punktów w posortowanej liście
-                    idx1 = next(idx for idx, p in enumerate(punkty_final) if abs(p['x']-p1['x'])<0.001 and abs(p['y']-p1['y'])<0.001)
-                    idx2 = next(idx for idx, p in enumerate(punkty_final) if abs(p['x']-p2['x'])<0.001 and abs(p['y']-p2['y'])<0.001)
-                    odleglosci_poprzeczne.append((idx1+1, idx2+1, odl))
-
-    # Wyświetlamy
     if odleglosci_sasiednie:
-        st.markdown("**Odległości między kolejnymi słupkami (zgodnie z numeracją):**")
         col_odl = st.columns(4)
         for idx, (i, j, odl) in enumerate(odleglosci_sasiednie):
             col = idx % 4
             with col_odl[col]:
                 st.write(f"{i} → {j}: {odl:.0f} cm")
 
-    if odleglosci_poprzeczne:
-        st.markdown("**Odległości w rzędach poprzecznych (między sąsiednimi słupkami):**")
-        col_pop = st.columns(4)
-        for idx, (i, j, odl) in enumerate(odleglosci_poprzeczne):
-            col = idx % 4
-            with col_pop[col]:
-                st.write(f"{i} → {j}: {odl:.0f} cm")
-
+    # Przycisk PDF
     st.markdown("---")
+    if st.button("📄 Eksportuj raport do PDF"):
+        pdf_path = create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
+                              liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
+                              sm_final, wyb_final, punkty_final)
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        b64 = base64.b64encode(pdf_bytes).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="raport_fundamenty.pdf">Kliknij tutaj, aby pobrać PDF</a>'
+        st.markdown(href, unsafe_allow_html=True)
+        os.remove(pdf_path)
+
     st.warning(
         "⚠️ **Uwaga prawna:** Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
         "Wyniki mają charakter orientacyjny i **nie stanowią podstawy do wykonania fundamentów** bez konsultacji "
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
-    
 
+  
+    
+    
+      
         
     
      
