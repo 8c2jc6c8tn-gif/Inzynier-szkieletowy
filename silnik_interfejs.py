@@ -553,10 +553,11 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 # ---------- FUNKCJE POMOCNICZE ----------
+
+# ---------- FUNKCJE POMOCNICZE ----------
 import math
 import base64
 from fpdf import FPDF
-import os
 
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
@@ -629,10 +630,10 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
             return
         if orientacja == 'dol':
             x = (cx1 + cx2) / 2
-            y = 40 + dlug_m * skala - 12   # nad dolną krawędzią (wewnątrz)
+            y = 40 + dlug_m * skala - 12
         elif orientacja == 'gora':
             x = (cx1 + cx2) / 2
-            y = 40 + 15                     # pod górną krawędzią (wewnątrz)
+            y = 40 + 15
         elif orientacja == 'lewo':
             x = 40 + 15
             y = (cy1 + cy2) / 2
@@ -641,7 +642,7 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
             y = (cy1 + cy2) / 2
         elif orientacja == 'poprzeczny':
             x = (cx1 + cx2) / 2
-            y = cy1 - 10                    # nad linią poprzeczną
+            y = cy1 - 10
         svg += f'<text x="{x}" y="{y}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
 
     dolne = sorted([p for p in punkty if abs(p['y']) < 0.001], key=lambda p: p['x'])
@@ -673,9 +674,8 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
 
 
 def create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
-               liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
+               liczba_rzedow, ile_final, obc_final, Ndop_final, zapas_final,
                smuklosc, szansa_wyboczenia, punkty_final):
-    from io import BytesIO
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=10)
@@ -720,9 +720,7 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw
         odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2)*100
         pdf.cell(200, 5, txt=f"{i+1} -> {i+2}: {odl:.0f} cm", ln=True)
 
-    # Zapis do BytesIO, aby uniknac problemow z sciezka
-    pdf_bytes = pdf.output(dest='S').encode('latin-1')
-    return pdf_bytes
+    return pdf.output(dest='S').encode('latin-1')
 
 
 # ---------- MODUŁ FUNDAMENTY ----------
@@ -919,7 +917,6 @@ def fundamenty_tab():
 
     punkty_final = sortuj_slupki(punkty_final, szer_m, dlug_m)
 
-    # --- chmurka edukacyjna (z wyraźnymi odstępami) ---
     with st.expander("📖 Jak interpretować wyniki?"):
         st.markdown("""
         **Liczba słupków** – im więcej, tym obciążenie na jeden słupek jest mniejsze, co zwiększa bezpieczeństwo, ale zwiększa koszty betonu i robocizny.
@@ -969,9 +966,10 @@ def fundamenty_tab():
     svg += '</svg>'
     st.markdown(svg, unsafe_allow_html=True)
 
-    # Tabela odległości z wyróżnieniem narożnych
+    # --- TABELA ODLEGŁOŚCI ---
     st.subheader("📋 Odległości pomiędzy słupkami")
-    # Najpierw odległości między narożnymi (tylko na obwodzie)
+
+    # Odległości między narożnymi
     narozne = [p for p in punkty_final if p['typ'] == 'narozny']
     odleglosci_narozne = []
     for i in range(len(narozne)):
@@ -989,9 +987,8 @@ def fundamenty_tab():
         st.markdown("**Odległości między słupkami narożnymi:**")
         for (i, j, odl) in odleglosci_narozne:
             st.write(f"- {i} ↔ {j}: **{odl:.0f} cm**")
-    else:
-        st.write("*Brak słupków narożnych.*")
 
+    # Pełna lista w 3 kolumnach
     st.markdown("**Pełna lista odległości (kolejno od słupka 1):**")
     odleglosci_sasiednie = []
     for i in range(len(punkty_final) - 1):
@@ -1009,26 +1006,26 @@ def fundamenty_tab():
                 st.write(f"{i} → {j}: {odl:.0f} cm")
     else:
         st.write("*Brak odległości do wyświetlenia.*")
-    # Przycisk PDF
+
+    # --- EKSPORT PDF ---
     st.markdown("---")
     if st.button("📄 Eksportuj raport do PDF"):
         try:
             pdf_bytes = create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
-                                  liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
+                                  liczba_rzedow, ile_final, obc_final, Ndop_final, zapas_final,
                                   sm_final, wyb_final, punkty_final)
             b64 = base64.b64encode(pdf_bytes).decode()
             href = f'<a href="data:application/octet-stream;base64,{b64}" download="raport_fundamenty.pdf">Pobierz raport PDF</a>'
             st.markdown(href, unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Nie udało się wygenerować PDF: {e}")
+
     st.warning(
         "⚠️ **Uwaga prawna:** Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
         "Wyniki mają charakter orientacyjny i **nie stanowią podstawy do wykonania fundamentów** bez konsultacji "
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
-
-
     
      
             
