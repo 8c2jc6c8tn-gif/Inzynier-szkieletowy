@@ -545,26 +545,67 @@ def kosztorys_tab():
 """)
 
 # ========== NOWY MODUŁ: FUNDAMENTY ==========
+# ---------- NOWA FUNKCJA POMOCNICZA ----------
+def generuj_pozycje_slupkow(szer_m, dlug_m, rozstaw_cm, poprzeczne=False, rozstaw_poprzeczny_cm=150):
+    """
+    Zwraca listę słowników: {'x': float, 'y': float, 'typ': 'narozny'/'obwodowy'/'poprzeczny'}
+    Współrzędne w metrach, początek (0,0) w lewym dolnym narożniku rzutu.
+    """
+    punkty = []
+    rozstaw_m = rozstaw_cm / 100.0
+    rozstaw_poprzeczny_m = rozstaw_poprzeczny_cm / 100.0
+
+    # Narożniki
+    for x in (0, szer_m):
+        for y in (0, dlug_m):
+            punkty.append({'x': x, 'y': y, 'typ': 'narozny'})
+
+    # Słupki pośrednie na bokach (obwodowe)
+    # Dolna krawędź (y=0) i górna (y=dlug_m)
+    for y in (0, dlug_m):
+        x = rozstaw_m
+        while x < szer_m - 0.01:
+            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
+            x += rozstaw_m
+
+    # Lewa i prawa krawędź (x=0, x=szer_m)
+    for x in (0, szer_m):
+        y = rozstaw_m
+        while y < dlug_m - 0.01:
+            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
+            y += rozstaw_m
+
+    # Słupki poprzeczne (środek długości)
+    if poprzeczne:
+        y_srodek = dlug_m / 2
+        x = 0.0
+        while x <= szer_m + 0.001:
+            punkty.append({'x': x, 'y': y_srodek, 'typ': 'poprzeczny'})
+            x += rozstaw_poprzeczny_m
+
+    return punkty
+
+
 def fundamenty_tab():
     st.header("🏛️ Fundamenty – słupki betonowe")
-    
+
     # Automatyczne pobranie wymiarów
     szer_m = st.session_state.szer / 100
     dlug_m = st.session_state.dlug / 100
     obwod_m = obwod_scian()
-    
+
     st.info(f"📐 Automatycznie pobrano wymiary budynku: **{szer_m:.2f} × {dlug_m:.2f} m** (obwód: {obwod_m:.1f} m)")
-    
+
     # Oszacowanie obciążenia całkowitego
     pow_dach = pow_dachu()
-    ciezar_dach = pow_dach * 0.8  # kN/m² – lekki dach
-    ciezar_scian = obwod_m * st.session_state.wys / 100 * 0.5  # kN
-    ciezar_stropu = pow_podlogi() * 0.6  # kN
-    obciazenie_snieg = pow_dach * 0.7  # kN/m² (strefa 2)
+    ciezar_dach = pow_dach * 0.8
+    ciezar_scian = obwod_m * st.session_state.wys / 100 * 0.5
+    ciezar_stropu = pow_podlogi() * 0.6
+    obciazenie_snieg = pow_dach * 0.7
     calkowite_kn = ciezar_dach + ciezar_scian + ciezar_stropu + obciazenie_snieg
-    
+
     st.markdown("---")
-    
+
     # Wybór gruntu
     st.subheader("🔍 Rodzaj podłoża")
     grunty = {
@@ -579,78 +620,69 @@ def fundamenty_tab():
     }
     wybrany_grunt = st.selectbox("Wybierz rodzaj gruntu", list(grunty.keys()), key='fundament_grunt')
     nosnosc_gruntu_kpa = grunty[wybrany_grunt]
-    
-    # Instrukcja badania gruntu
+
     with st.expander("🧪 Jak sprawdzić rodzaj gruntu? (test butelkowy)"):
         st.markdown("""
         **Test butelkowy – prosta metoda dla każdego:**
-        1. Weź garść ziemi z głębokości ok. **80–100 cm** (poniżej warstwy humusu).
-        2. Wsyp do przezroczystej butelki (np. 0,5 l) do ok. ⅓ wysokości.
-        3. Dolej wody do ¾ butelki i mocno wstrząśnij przez 1 minutę.
-        4. Odstaw na 24 godziny – ziemia opadnie warstwami.
-        
-        **Jak odczytać wynik:**
-        - **Piasek**: szybko opada, woda nad osadem jest prawie przejrzysta.
-        - **Glina**: woda długo pozostaje mętna, osad jest zbity i tłusty w dotyku.
-        - **Piasek gliniasty**: drobne cząstki długo się utrzymują w wodzie, na dnie warstwa piasku.
-        
-        Dla budownictwa szkieletowego **najlepsze są piaski i żwiry** – gliny wymagają większych słupków.
+        1. Weź garść ziemi z głębokości ok. **80–100 cm**.
+        2. Wsyp do butelki do ⅓ wysokości, dolej wody do ¾.
+        3. Wstrząśnij przez 1 min i odstaw na 24 godziny.
+        **Odczyt:** Piasek – szybko opada, woda przejrzysta; Glina – woda mętna, osad tłusty.
         """)
-    
+
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         glebokosc_cm = st.slider("Głębokość słupka (cm)", 60, 150, value=st.session_state.fundament_glebokosc, step=5, key='fundament_glebokosc')
     with col_f2:
         srednica_mm = st.slider("Średnica słupka (mm)", 40, 200, value=st.session_state.fundament_srednica, step=10, key='fundament_srednica')
-    
-    rozstaw_cm = st.slider("Rozstaw słupków (cm)", 80, 250, value=st.session_state.fundament_rozstaw, step=10, key='fundament_rozstaw')
-    
-    # Obliczenia nośności wg Eurokodu 7 (uproszczone)
-    ile_slupkow = math.ceil(obwod_m * 100 / rozstaw_cm) + 4  # +4 narożniki
-    obciazenie_na_slupek_kn = calkowite_kn / ile_slupkow
-    
-    # Nośność podstawy słupka: R = A * q_f
+
+    rozstaw_cm = st.slider("Rozstaw słupków obwodowych (cm)", 80, 250, value=st.session_state.fundament_rozstaw, step=10, key='fundament_rozstaw')
+
+    # Opcja słupków poprzecznych
+    poprzeczne = st.checkbox("Dodaj słupki poprzeczne (pod ścianę nośną wewnątrz)", value=False)
+    if poprzeczne:
+        rozstaw_poprzeczny_cm = st.slider("Rozstaw słupków poprzecznych (cm)", 80, 250, value=150, step=10)
+    else:
+        rozstaw_poprzeczny_cm = rozstaw_cm
+
+    # Obliczenia nośności
+    ile_slupkow_obwodowych = math.ceil(obwod_m * 100 / rozstaw_cm) + 4
+    ile_slupkow_poprzecznych = math.ceil(szer_m * 100 / rozstaw_poprzeczny_cm) + 1 if poprzeczne else 0
+    ile_slupkow = ile_slupkow_obwodowych + ile_slupkow_poprzecznych
+    obciazenie_na_slupek_kn = calkowite_kn / ile_slupkow if ile_slupkow else 0
+
     srednica_m = srednica_mm / 1000
     pole_podstawy_m2 = math.pi * (srednica_m / 2) ** 2
-    nosnosc_gruntu_kpa = grunty[wybrany_grunt]  # kPa → kN/m²
     nosnosc_podstawy_kn = pole_podstawy_m2 * nosnosc_gruntu_kpa
-    
-    # Nośność pobocznicy (tarcie): uproszczone – 10% nośności podstawy na każde 10 cm głębokości
-    glebokosc_m = glebokosc_cm / 100
+
     obwod_slupka_m = math.pi * srednica_m
-    powierzchnia_boczna_m2 = obwod_slupka_m * glebokosc_m
-    tarcie_kn = powierzchnia_boczna_m2 * nosnosc_gruntu_kpa * 0.1  # współczynnik tarcia
-    
+    powierzchnia_boczna_m2 = obwod_slupka_m * (glebokosc_cm / 100)
+    tarcie_kn = powierzchnia_boczna_m2 * nosnosc_gruntu_kpa * 0.1
+
     nosnosc_calkowita_kn = nosnosc_podstawy_kn + tarcie_kn
-    
-    # Współczynnik bezpieczeństwa
-    wspolczynnik_bezp = 2.0  # wg Eurokodu 7 dla fundamentów bezpośrednich
+    wspolczynnik_bezp = 2.0
     nosnosc_dopuszczalna_kn = nosnosc_calkowita_kn / wspolczynnik_bezp
-    
     zapas_procent = ((nosnosc_dopuszczalna_kn / obciazenie_na_slupek_kn) - 1) * 100 if obciazenie_na_slupek_kn > 0 else 999
-    
-    # Szacowanie ryzyka wyboczenia (uproszczone – Euler)
-    # Długość wyboczeniowa = 2 * głębokość (wspornik)
-    dl_wyboczeniowa_m = 2 * glebokosc_m
-    promien_bewladnosci_m = srednica_m / 4  # dla przekroju kołowego
+
+    dl_wyboczeniowa_m = 2 * glebokosc_cm / 100
+    promien_bewladnosci_m = srednica_m / 4
     smuklosc = dl_wyboczeniowa_m / promien_bewladnosci_m if promien_bewladnosci_m > 0 else 0
-    szansa_wyboczenia = max(0, min(100, (smuklosc - 50) * 2))  # % – orientacyjnie
-    
+    szansa_wyboczenia = max(0, min(100, (smuklosc - 50) * 2))
+
     # Wyniki
     st.markdown("---")
     st.subheader("📊 Wyniki obliczeń")
-    
     col_w1, col_w2, col_w3 = st.columns(3)
     col_w1.metric("Liczba słupków", f"{ile_slupkow} szt.")
     col_w2.metric("Obciążenie na słupek", f"{obciazenie_na_slupek_kn:.2f} kN")
     col_w3.metric("Nośność dopuszczalna", f"{nosnosc_dopuszczalna_kn:.2f} kN")
-    
+
     col_w4, col_w5, col_w6 = st.columns(3)
     col_w4.metric("Zapas nośności", f"{zapas_procent:.0f} %")
     col_w5.metric("Smukłość słupka", f"{smuklosc:.0f}")
     col_w6.metric("Szansa wyboczenia", f"{szansa_wyboczenia:.0f} %")
-    
-    # Wizualna ocena
+
+    # Ocena wizualna
     st.markdown("---")
     if zapas_procent > 50:
         st.success(f"✅ **Słupek przewymiarowany** – zapas {zapas_procent:.0f}%. Możesz zmniejszyć średnicę lub zwiększyć rozstaw.")
@@ -660,30 +692,61 @@ def fundamenty_tab():
         st.warning(f"⚠️ **Na granicy** – zapas tylko {zapas_procent:.0f}%. Rozważ zwiększenie średnicy lub zagęszczenie słupków.")
     else:
         st.error(f"❌ **Niewystarczająca nośność!** – brakuje {-zapas_procent:.0f}%. Zwiększ średnicę lub głębokość słupka.")
-    
-    # Propozycja optymalna
+
+    # Propozycja optymalnego rozwiązania
     st.markdown("---")
     st.subheader("💡 Propozycja optymalnego rozwiązania")
-    
-    # Szukamy minimalnej średnicy dającej zapas > 20%
     for proponowana_srednica in range(40, 200, 10):
         sr_m = proponowana_srednica / 1000
         pole = math.pi * (sr_m / 2) ** 2
         obw_sl = math.pi * sr_m
-        pow_boczna = obw_sl * glebokosc_m
+        pow_boczna = obw_sl * (glebokosc_cm / 100)
         tarcie_opt = pow_boczna * nosnosc_gruntu_kpa * 0.1
         nosnosc_opt = (pole * nosnosc_gruntu_kpa + tarcie_opt) / wspolczynnik_bezp
         if nosnosc_opt > obciazenie_na_slupek_kn * 1.2:
             st.success(f"✅ Dla gruntu **{wybrany_grunt}** zalecana średnica: **{proponowana_srednica} mm** (zapas > 20%)")
             st.write(f"- Głębokość: **{glebokosc_cm} cm**")
-            st.write(f"- Rozstaw: **{rozstaw_cm} cm**")
+            st.write(f"- Rozstaw obwodowy: **{rozstaw_cm} cm**")
             st.write(f"- Ilość słupków: **{ile_slupkow} szt.**")
-            beton_m3 = ile_slupkow * pole * glebokosc_m
+            beton_m3 = ile_slupkow * pole * (glebokosc_cm / 100)
             st.write(f"- Szacunkowa ilość betonu: **{beton_m3:.2f} m³**")
             break
-    
-    st.caption("Obliczenia wg Eurokodu 7 (PN-EN 1997) – uproszczone. Dla dokładnych wyników skonsultuj się z konstruktorem.")
 
+    # Dynamiczna wizualizacja SVG
+    st.markdown("---")
+    st.subheader("🗺️ Wizualizacja rozmieszczenia słupków")
+    punkty = generuj_pozycje_slupkow(szer_m, dlug_m, rozstaw_cm, poprzeczne, rozstaw_poprzeczny_cm)
+
+    # Skala rysunku (dopasowana do szerokości ekranu ~500 px)
+    max_wymiar = max(szer_m, dlug_m)
+    skala = 400 / max_wymiar if max_wymiar > 0 else 50  # 400 px na dłuższy bok
+    szer_px = szer_m * skala
+    dlug_px = dlug_m * skala
+    promien_slupka = max(3, skala * 0.05)  # dynamiczny promień
+
+    # Budowanie SVG
+    svg = f'<svg width="{szer_px + 60}" height="{dlug_px + 60}" xmlns="http://www.w3.org/2000/svg">'
+    # Tło
+    svg += f'<rect x="30" y="30" width="{szer_px}" height="{dlug_px}" fill="#f9f9f9" stroke="black" stroke-width="2"/>'
+    # Linie siatki?
+    # Słupki
+    for i, p in enumerate(punkty):
+        cx = 30 + p['x'] * skala
+        cy = 30 + (dlug_m - p['y']) * skala  # odwrócenie osi Y
+        kolor = "red" if p['typ'] == 'narozny' else ("blue" if p['typ'] == 'poprzeczny' else "green")
+        svg += f'<circle cx="{cx}" cy="{cy}" r="{promien_slupka}" fill="{kolor}" stroke="black" stroke-width="1"/>'
+        svg += f'<text x="{cx+4}" y="{cy-4}" font-size="8">{i+1}</text>'
+    # Linia poprzeczna (jeśli słupki poprzeczne)
+    if poprzeczne:
+        y_srodka = 30 + dlug_px / 2
+        svg += f'<line x1="30" y1="{y_srodka}" x2="{30 + szer_px}" y2="{y_srodka}" stroke="orange" stroke-dasharray="5,5" stroke-width="2"/>'
+    svg += '</svg>'
+
+    st.markdown(svg, unsafe_allow_html=True)
+    st.caption("Kolory: 🔴 narożne, 🟢 obwodowe, 🔵 poprzeczne. Pomarańczowa linia – rząd poprzeczny.")
+
+# Na końcu pliku zaktualizuj słownik zakładek (dodaj, jeśli nie ma)
+# zakladki_funkcje["🏛️ Fundamenty"] = fundamenty_tab
 # ========== SŁOWNIK ZAKŁADEK (dodajemy nowe TUTAJ) ==========
 zakladki_funkcje = {
     "Geometria": geometria_tab,
