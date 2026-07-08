@@ -555,8 +555,211 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE ----------
 
 # ---------- FUNKCJE POMOCNICZE ----------
-    
+# ---------- FUNKCJE POMOCNICZE ----------
+import math
+import base64
+from fpdf import FPDF
 
+def usun_polskie_znaki(text):
+    replacements = {
+        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+        'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+        'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
+        'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text
+
+def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
+    def slupki_na_boku(dlugosc_m, rozstaw_cm):
+        if dlugosc_m <= 0.01:
+            return []
+        max_przesel = max(1, int(dlugosc_m * 100 / rozstaw_cm))
+        for n in range(max_przesel, 0, -1):
+            if dlugosc_m / n >= rozstaw_cm / 100:
+                krok = dlugosc_m / n
+                return [i * krok for i in range(1, n)]
+        return []
+
+    punkty = []
+    for x in (0, szer_m):
+        for y in (0, dlug_m):
+            punkty.append({'x': x, 'y': y, 'typ': 'narozny'})
+    for y in (0, dlug_m):
+        for x in slupki_na_boku(szer_m, rozstaw_cm):
+            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
+    for x in (0, szer_m):
+        for y in slupki_na_boku(dlug_m, rozstaw_cm):
+            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
+    return punkty
+
+def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
+    if liczba_rzedow <= 0:
+        return punkty
+    x_na_krawedziach = set()
+    for p in punkty:
+        if p['typ'] in ('narozny', 'obwodowy'):
+            x_na_krawedziach.add(round(p['x'], 6))
+    x_na_krawedziach.discard(0.0)
+    x_na_krawedziach.discard(round(szer_m, 6))
+    x_na_krawedziach = sorted(list(x_na_krawedziach))
+    for i in range(1, liczba_rzedow + 1):
+        y = dlug_m * i / (liczba_rzedow + 1)
+        for x in x_na_krawedziach:
+            if not any(abs(p['x']-x)<0.001 and abs(p['y']-y)<0.001 for p in punkty):
+                punkty.append({'x': x, 'y': y, 'typ': 'poprzeczny'})
+    return punkty
+
+def sortuj_slupki(punkty, szer_m, dlug_m):
+    obwodowe = [p for p in punkty if p['typ'] in ('narozny', 'obwodowy')]
+    unikalne = []
+    for p in obwodowe:
+        if not any(abs(p['x']-u['x'])<0.001 and abs(p['y']-u['y'])<0.001 for u in unikalne):
+            unikalne.append(p)
+
+    dol = sorted([p for p in unikalne if abs(p['y']) < 0.001], key=lambda p: p['x'])
+    prawa = sorted([p for p in unikalne if abs(p['x'] - szer_m) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: p['y'])
+    gora = sorted([p for p in unikalne if abs(p['y'] - dlug_m) < 0.001], key=lambda p: -p['x'])
+    lewa = sorted([p for p in unikalne if abs(p['x']) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: -p['y'])
+
+    unikalne_obwodowe = dol + prawa + gora + lewa
+    poprzeczne = sorted([p for p in punkty if p['typ'] == 'poprzeczny'], key=lambda p: (p['y'], p['x']))
+    return unikalne_obwodowe + poprzeczne
+
+def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
+    def dodaj_odleglosci_dla_pary(p1, p2, orientacja):
+        nonlocal svg
+        cx1 = 40 + p1['x'] * skala
+        cy1 = 40 + (dlug_m - p1['y']) * skala
+        cx2 = 40 + p2['x'] * skala
+        cy2 = 40 + (dlug_m - p2['y']) * skala
+        odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2) * 100
+        if odl < 0.5:
+            return
+        if orientacja == 'dol':
+            x = (cx1 + cx2) / 2
+            y = 40 + dlug_m * skala - 12
+        elif orientacja == 'gora':
+            x = (cx1 + cx2) / 2
+            y = 40 + 15
+        elif orientacja == 'lewo':
+            x = 40 + 15
+            y = (cy1 + cy2) / 2
+        elif orientacja == 'prawo':
+            x = 40 + szer_m * skala - 15
+            y = (cy1 + cy2) / 2
+        elif orientacja == 'poprzeczny':
+            x = (cx1 + cx2) / 2
+            y = cy1 - 10
+        svg += f'<text x="{x}" y="{y}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
+
+    dolne = sorted([p for p in punkty if abs(p['y']) < 0.001], key=lambda p: p['x'])
+    for i in range(len(dolne)-1):
+        dodaj_odleglosci_dla_pary(dolne[i], dolne[i+1], 'dol')
+    gorne = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.001], key=lambda p: p['x'])
+    for i in range(len(gorne)-1):
+        dodaj_odleglosci_dla_pary(gorne[i], gorne[i+1], 'gora')
+    lewe = sorted([p for p in punkty if abs(p['x']) < 0.001], key=lambda p: p['y'])
+    for i in range(len(lewe)-1):
+        dodaj_odleglosci_dla_pary(lewe[i], lewe[i+1], 'lewo')
+    prawe = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.001], key=lambda p: p['y'])
+    for i in range(len(prawe)-1):
+        dodaj_odleglosci_dla_pary(prawe[i], prawe[i+1], 'prawo')
+
+    poprzeczne = [p for p in punkty if p['typ'] == 'poprzeczny']
+    if poprzeczne:
+        grupy = {}
+        for p in poprzeczne:
+            y_r = round(p['y'], 6)
+            if y_r not in grupy:
+                grupy[y_r] = []
+            grupy[y_r].append(p)
+        for lista in grupy.values():
+            lista.sort(key=lambda p: p['x'])
+            for i in range(len(lista)-1):
+                dodaj_odleglosci_dla_pary(lista[i], lista[i+1], 'poprzeczny')
+    return svg
+
+def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, rozstaw_cm,
+               liczba_rzedow, ile_final, obc_final, Ndop_final, zapas_final,
+               smuklosc, szansa_wyboczenia, punkty_final):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=10)
+
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, txt="Raport - Fundamenty", ln=True, align='C')
+    pdf.ln(10)
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, txt="Parametry budynku i gruntu", ln=True)
+    pdf.set_font("Arial", size=10)
+    pdf.cell(0, 6, txt=f"Wymiary: {szer_m:.2f} x {dlug_m:.2f} m", ln=True)
+    pdf.cell(0, 6, txt=f"Grunt: {wybrany_grunt_ascii}", ln=True)
+    pdf.cell(0, 6, txt=f"Glebokosc: {glebokosc_cm} cm, Srednica: {srednica_mm} mm", ln=True)
+    pdf.cell(0, 6, txt=f"Rozstaw obwodowy: {rozstaw_cm} cm, Rzedy poprzeczne: {liczba_rzedow}", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, txt="Wyniki obliczen", ln=True)
+    pdf.set_font("Arial", size=10)
+    pdf.cell(0, 6, txt=f"Liczba slupkow: {ile_final}", ln=True)
+    pdf.cell(0, 6, txt=f"Obciazenie na slupek: {obc_final:.2f} kN", ln=True)
+    pdf.cell(0, 6, txt=f"Noscnosc dopuszczalna: {Ndop_final:.2f} kN", ln=True)
+    pdf.cell(0, 6, txt=f"Zapas nosci: {zapas_final:.0f}%", ln=True)
+    pdf.cell(0, 6, txt=f"Smuklosc: {smuklosc:.0f}, Szansa wyboczenia: {szansa_wyboczenia:.0f}%", ln=True)
+    pdf.ln(8)
+
+    # Rysunek schematyczny
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, txt="Schemat fundamentu", ln=True)
+    skala_pdf = 30
+    margines_x = 15
+    margines_y = pdf.get_y() + 5
+    szer_px = szer_m * skala_pdf
+    dlug_px = dlug_m * skala_pdf
+    pdf.rect(margines_x, margines_y, szer_px, dlug_px)
+    for p in punkty_final:
+        cx = margines_x + p['x'] * skala_pdf
+        cy = margines_y + (dlug_m - p['y']) * skala_pdf
+        pdf.circle(cx, cy, 2)
+    dolne = sorted([p for p in punkty_final if abs(p['y']) < 0.001], key=lambda p: p['x'])
+    y_linii = margines_y + dlug_px + 8
+    for i in range(len(dolne)-1):
+        x1 = margines_x + dolne[i]['x'] * skala_pdf
+        x2 = margines_x + dolne[i+1]['x'] * skala_pdf
+        odl = (dolne[i+1]['x'] - dolne[i]['x']) * 100
+        pdf.line(x1, y_linii, x2, y_linii)
+        pdf.text((x1+x2)/2 - 5, y_linii + 4, f"{odl:.0f} cm")
+    pdf.ln(dlug_px + 20)
+
+    # Tabela odległości
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, txt="Odleglosci miedzy slupkami (cm)", ln=True)
+    pdf.set_font("Arial", size=9)
+    pdf.set_fill_color(200, 200, 200)
+    pdf.cell(20, 6, "Start", 1, 0, 'C', True)
+    pdf.cell(20, 6, "Koniec", 1, 0, 'C', True)
+    pdf.cell(30, 6, "Odleglosc", 1, 1, 'C', True)
+    for i in range(len(punkty_final)-1):
+        p1 = punkty_final[i]
+        p2 = punkty_final[i+1]
+        odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2)*100
+        pdf.cell(20, 6, str(i+1), 1, 0, 'C')
+        pdf.cell(20, 6, str(i+2), 1, 0, 'C')
+        pdf.cell(30, 6, f"{odl:.0f} cm", 1, 1, 'C')
+
+    pdf.ln(5)
+
+    # Klauzula prawna
+    pdf.set_font("Arial", 'I', 8)
+    pdf.multi_cell(0, 5, txt="Uwaga prawna: Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). Wyniki maja charakter orientacyjny i nie stanowia podstawy do wykonania fundamentow bez konsultacji z uprawnionym konstruktorem lub architektem. Ostateczna decyzje o liczbie, srednicy i glebokosci slupkow nalezy powierzyc specjaliście posiadajacemu odpowiednie uprawnienia budowlane.")
+
+    return pdf.output(dest='S').encode('latin-1')
+
+
+# ---------- MODUŁ FUNDAMENTY ----------
 def fundamenty_tab():
     st.header("🏛️ Fundamenty – słupki betonowe")
 
