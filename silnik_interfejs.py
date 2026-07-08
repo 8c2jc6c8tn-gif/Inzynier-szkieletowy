@@ -546,43 +546,44 @@ def kosztorys_tab():
 
 # ========== NOWY MODUŁ: FUNDAMENTY ==========
 # ---------- NOWA FUNKCJA POMOCNICZA ----------
-def generuj_pozycje_slupkow(szer_m, dlug_m, rozstaw_cm, poprzeczne=False, rozstaw_poprzeczny_cm=150):
+
+def generuj_pozycje_slupkow_rownomiernie(szer_m, dlug_m, liczba_przesel_x, liczba_przesel_y, poprzeczne=False, liczba_przesel_poprzeczne=0):
     """
-    Zwraca listę słowników: {'x': float, 'y': float, 'typ': 'narozny'/'obwodowy'/'poprzeczny'}
-    Współrzędne w metrach, początek (0,0) w lewym dolnym narożniku rzutu.
+    Generuje słupki równomiernie rozłożone na obwodzie i opcjonalnie w rzędzie poprzecznym.
+    liczba_przesel_x – ile przęseł na bokach poziomych (0 = tylko narożne)
+    liczba_przesel_y – ile przęseł na bokach pionowych
     """
     punkty = []
-    rozstaw_m = rozstaw_cm / 100.0
-    rozstaw_poprzeczny_m = rozstaw_poprzeczny_cm / 100.0
-
+    
     # Narożniki
     for x in (0, szer_m):
         for y in (0, dlug_m):
             punkty.append({'x': x, 'y': y, 'typ': 'narozny'})
-
-    # Słupki pośrednie na bokach (obwodowe)
-    # Dolna krawędź (y=0) i górna (y=dlug_m)
-    for y in (0, dlug_m):
-        x = rozstaw_m
-        while x < szer_m - 0.01:
-            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
-            x += rozstaw_m
-
-    # Lewa i prawa krawędź (x=0, x=szer_m)
-    for x in (0, szer_m):
-        y = rozstaw_m
-        while y < dlug_m - 0.01:
-            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
-            y += rozstaw_m
-
-    # Słupki poprzeczne (środek długości)
-    if poprzeczne:
+    
+    # Słupki pośrednie – dolna i górna krawędź
+    if liczba_przesel_x > 1:
+        krok_x = szer_m / liczba_przesel_x
+        for i in range(1, liczba_przesel_x):
+            x = i * krok_x
+            punkty.append({'x': x, 'y': 0, 'typ': 'obwodowy'})
+            punkty.append({'x': x, 'y': dlug_m, 'typ': 'obwodowy'})
+    
+    # Słupki pośrednie – lewa i prawa krawędź
+    if liczba_przesel_y > 1:
+        krok_y = dlug_m / liczba_przesel_y
+        for i in range(1, liczba_przesel_y):
+            y = i * krok_y
+            punkty.append({'x': 0, 'y': y, 'typ': 'obwodowy'})
+            punkty.append({'x': szer_m, 'y': y, 'typ': 'obwodowy'})
+    
+    # Rząd poprzeczny (środek długości)
+    if poprzeczne and liczba_przesel_poprzeczne > 0:
         y_srodek = dlug_m / 2
-        x = 0.0
-        while x <= szer_m + 0.001:
+        krok_pop = szer_m / (liczba_przesel_poprzeczne + 1)
+        for i in range(1, liczba_przesel_poprzeczne + 1):
+            x = i * krok_pop
             punkty.append({'x': x, 'y': y_srodek, 'typ': 'poprzeczny'})
-            x += rozstaw_poprzeczny_m
-
+    
     return punkty
 
 
@@ -636,114 +637,160 @@ def fundamenty_tab():
     with col_f2:
         srednica_mm = st.slider("Średnica słupka (mm)", 40, 200, value=st.session_state.fundament_srednica, step=10, key='fundament_srednica')
 
-    rozstaw_cm = st.slider("Rozstaw słupków obwodowych (cm)", 80, 250, value=st.session_state.fundament_rozstaw, step=10, key='fundament_rozstaw')
-
+    # Wybór liczby przęseł
+    st.subheader("📏 Rozstaw słupków")
+    max_przesel_x = max(1, int(szer_m / 0.5))  # min 50 cm
+    max_przesel_y = max(1, int(dlug_m / 0.5))
+    
+    col_r1, col_r2 = st.columns(2)
+    with col_r1:
+        liczba_przesel_x = st.slider("Liczba przęseł na szerokości (X)", 1, max_przesel_x, 
+                                      value=max(2, int(szer_m / (st.session_state.fundament_rozstaw / 100))), 
+                                      key='fundament_przesla_x')
+    with col_r2:
+        liczba_przesel_y = st.slider("Liczba przęseł na długości (Y)", 1, max_przesel_y, 
+                                      value=max(2, int(dlug_m / (st.session_state.fundament_rozstaw / 100))), 
+                                      key='fundament_przesla_y')
+    
     # Opcja słupków poprzecznych
-    poprzeczne = st.checkbox("Dodaj słupki poprzeczne (pod ścianę nośną wewnątrz)", value=False)
+    poprzeczne = st.checkbox("Dodaj rząd słupków poprzecznych (pod wewnętrzną ścianę nośną)", value=False)
     if poprzeczne:
-        rozstaw_poprzeczny_cm = st.slider("Rozstaw słupków poprzecznych (cm)", 80, 250, value=150, step=10)
+        max_przesel_pop = max(0, int(szer_m / 0.5) - 1)
+        liczba_przesel_pop = st.slider("Liczba przęseł poprzecznych", 0, max_przesel_pop, value=0)
     else:
-        rozstaw_poprzeczny_cm = rozstaw_cm
+        liczba_przesel_pop = 0
 
-    # Obliczenia nośności
-    ile_slupkow_obwodowych = math.ceil(obwod_m * 100 / rozstaw_cm) + 4
-    ile_slupkow_poprzecznych = math.ceil(szer_m * 100 / rozstaw_poprzeczny_cm) + 1 if poprzeczne else 0
-    ile_slupkow = ile_slupkow_obwodowych + ile_slupkow_poprzecznych
-    obciazenie_na_slupek_kn = calkowite_kn / ile_slupkow if ile_slupkow else 0
-
-    srednica_m = srednica_mm / 1000
-    pole_podstawy_m2 = math.pi * (srednica_m / 2) ** 2
-    nosnosc_podstawy_kn = pole_podstawy_m2 * nosnosc_gruntu_kpa
-
-    obwod_slupka_m = math.pi * srednica_m
-    powierzchnia_boczna_m2 = obwod_slupka_m * (glebokosc_cm / 100)
-    tarcie_kn = powierzchnia_boczna_m2 * nosnosc_gruntu_kpa * 0.1
-
-    nosnosc_calkowita_kn = nosnosc_podstawy_kn + tarcie_kn
-    wspolczynnik_bezp = 2.0
-    nosnosc_dopuszczalna_kn = nosnosc_calkowita_kn / wspolczynnik_bezp
-    zapas_procent = ((nosnosc_dopuszczalna_kn / obciazenie_na_slupek_kn) - 1) * 100 if obciazenie_na_slupek_kn > 0 else 999
-
-    dl_wyboczeniowa_m = 2 * glebokosc_cm / 100
-    promien_bewladnosci_m = srednica_m / 4
-    smuklosc = dl_wyboczeniowa_m / promien_bewladnosci_m if promien_bewladnosci_m > 0 else 0
-    szansa_wyboczenia = max(0, min(100, (smuklosc - 50) * 2))
-
-    # Wyniki
-    st.markdown("---")
-    st.subheader("📊 Wyniki obliczeń")
-    col_w1, col_w2, col_w3 = st.columns(3)
-    col_w1.metric("Liczba słupków", f"{ile_slupkow} szt.")
-    col_w2.metric("Obciążenie na słupek", f"{obciazenie_na_slupek_kn:.2f} kN")
-    col_w3.metric("Nośność dopuszczalna", f"{nosnosc_dopuszczalna_kn:.2f} kN")
-
-    col_w4, col_w5, col_w6 = st.columns(3)
-    col_w4.metric("Zapas nośności", f"{zapas_procent:.0f} %")
-    col_w5.metric("Smukłość słupka", f"{smuklosc:.0f}")
-    col_w6.metric("Szansa wyboczenia", f"{szansa_wyboczenia:.0f} %")
-
-    # Ocena wizualna
-    st.markdown("---")
-    if zapas_procent > 50:
-        st.success(f"✅ **Słupek przewymiarowany** – zapas {zapas_procent:.0f}%. Możesz zmniejszyć średnicę lub zwiększyć rozstaw.")
-    elif zapas_procent > 10:
-        st.info(f"ℹ️ **Optymalnie** – zapas {zapas_procent:.0f}%. Konstrukcja bezpieczna i ekonomiczna.")
-    elif zapas_procent > 0:
-        st.warning(f"⚠️ **Na granicy** – zapas tylko {zapas_procent:.0f}%. Rozważ zwiększenie średnicy lub zagęszczenie słupków.")
-    else:
-        st.error(f"❌ **Niewystarczająca nośność!** – brakuje {-zapas_procent:.0f}%. Zwiększ średnicę lub głębokość słupka.")
-
-    # Propozycja optymalnego rozwiązania
-    st.markdown("---")
-    st.subheader("💡 Propozycja optymalnego rozwiązania")
-    for proponowana_srednica in range(40, 200, 10):
-        sr_m = proponowana_srednica / 1000
-        pole = math.pi * (sr_m / 2) ** 2
-        obw_sl = math.pi * sr_m
+    # Generowanie wariantów
+    wariant_standard = generuj_pozycje_slupkow_rownomiernie(szer_m, dlug_m, liczba_przesel_x, liczba_przesel_y, poprzeczne, liczba_przesel_pop)
+    wariant_mniej_slupkow = generuj_pozycje_slupkow_rownomiernie(szer_m, dlug_m, max(1, liczba_przesel_x-1), max(1, liczba_przesel_y-1), poprzeczne, max(0, liczba_przesel_pop-1))
+    wariant_wiecej_slupkow = generuj_pozycje_slupkow_rownomiernie(szer_m, dlug_m, liczba_przesel_x+1, liczba_przesel_y+1, poprzeczne, liczba_przesel_pop+1 if poprzeczne else 0)
+    
+    # Obliczenia dla każdego wariantu
+    def oblicz_wariant(punkty):
+        ile = len(punkty)
+        obc_na_slupek = calkowite_kn / ile if ile else 1e9
+        srednica_m = srednica_mm / 1000
+        pole = math.pi * (srednica_m / 2) ** 2
+        obw_sl = math.pi * srednica_m
         pow_boczna = obw_sl * (glebokosc_cm / 100)
-        tarcie_opt = pow_boczna * nosnosc_gruntu_kpa * 0.1
-        nosnosc_opt = (pole * nosnosc_gruntu_kpa + tarcie_opt) / wspolczynnik_bezp
-        if nosnosc_opt > obciazenie_na_slupek_kn * 1.2:
-            st.success(f"✅ Dla gruntu **{wybrany_grunt}** zalecana średnica: **{proponowana_srednica} mm** (zapas > 20%)")
-            st.write(f"- Głębokość: **{glebokosc_cm} cm**")
-            st.write(f"- Rozstaw obwodowy: **{rozstaw_cm} cm**")
-            st.write(f"- Ilość słupków: **{ile_slupkow} szt.**")
-            beton_m3 = ile_slupkow * pole * (glebokosc_cm / 100)
-            st.write(f"- Szacunkowa ilość betonu: **{beton_m3:.2f} m³**")
-            break
-
+        tarcie = pow_boczna * nosnosc_gruntu_kpa * 0.1
+        nosnosc_calk = pole * nosnosc_gruntu_kpa + tarcie
+        nosnosc_dop = nosnosc_calk / 2.0
+        zapas = ((nosnosc_dop / obc_na_slupek) - 1) * 100 if obc_na_slupek > 0 else 999
+        return ile, obc_na_slupek, zapas
+    
+    ile_std, obc_std, zapas_std = oblicz_wariant(wariant_standard)
+    ile_mniej, obc_mniej, zapas_mniej = oblicz_wariant(wariant_mniej_slupkow)
+    ile_wiecej, obc_wiecej, zapas_wiecej = oblicz_wariant(wariant_wiecej_slupkow)
+    
+    # Określenie zalecanego wariantu
+    if zapas_std >= 20 and zapas_mniej < 10:
+        zalecany = "standard"
+        zalecany_tekst = "Standardowy (optymalny zapas ~{:.0f}%)".format(zapas_std)
+    elif zapas_mniej >= 10 and zapas_mniej < 50:
+        zalecany = "mniej"
+        zalecany_tekst = "Mniej słupków (oszczędność, zapas ~{:.0f}%)".format(zapas_mniej)
+    elif zapas_wiecej > zapas_std and zapas_std < 10:
+        zalecany = "wiecej"
+        zalecany_tekst = "Więcej słupków (bezpieczeństwo, zapas ~{:.0f}%)".format(zapas_wiecej)
+    else:
+        zalecany = "standard"
+        zalecany_tekst = "Standardowy (zapas ~{:.0f}%)".format(zapas_std)
+    
+    # Wybór wariantu przez użytkownika
+    st.markdown("---")
+    st.subheader("⚙️ Optymalizacja rozstawu słupków")
+    st.info("💡 Ze względu na wymiary budynku, idealnie równy rozstaw może wymagać dostosowania liczby słupków. "
+            "Wybierz wariant, który Ci odpowiada:")
+    
+    col_opt1, col_opt2, col_opt3 = st.columns(3)
+    with col_opt1:
+        kolor_mniej = "green" if zalecany == "mniej" else "red"
+        st.markdown(f"### 🔴 Mniej słupków")
+        st.write(f"- {ile_mniej} słupków")
+        st.write(f"- Obc./słupek: {obc_mniej:.2f} kN")
+        st.write(f"- Zapas: **{zapas_mniej:.0f}%**")
+        if zalecany == "mniej":
+            st.success("✅ Zalecane")
+    
+    with col_opt2:
+        kolor_std = "green" if zalecany == "standard" else "orange"
+        st.markdown(f"### 🟡 Standard")
+        st.write(f"- {ile_std} słupków")
+        st.write(f"- Obc./słupek: {obc_std:.2f} kN")
+        st.write(f"- Zapas: **{zapas_std:.0f}%**")
+        if zalecany == "standard":
+            st.success("✅ Zalecane")
+    
+    with col_opt3:
+        kolor_wiecej = "green" if zalecany == "wiecej" else "blue"
+        st.markdown(f"### 🔵 Więcej słupków")
+        st.write(f"- {ile_wiecej} słupków")
+        st.write(f"- Obc./słupek: {obc_wiecej:.2f} kN")
+        st.write(f"- Zapas: **{zapas_wiecej:.0f}%**")
+        if zalecany == "wiecej":
+            st.success("✅ Zalecane")
+    
+    wybrany_wariant = st.radio("Wybierz wariant:", ["mniej", "standard", "wiecej"], 
+                                 index=["mniej", "standard", "wiecej"].index(zalecany),
+                                 horizontal=True, key='fundament_wariant')
+    
+    if st.button("✅ Zatwierdź wybór i przelicz rysunek", use_container_width=True, key='fundament_zatwierdz'):
+        st.session_state.fundament_wariant_zatwierdzony = wybrany_wariant
+    
+    # Użyj zatwierdzonego lub domyślnego
+    wariant_do_rysunku = st.session_state.get('fundament_wariant_zatwierdzony', zalecany)
+    
+    if wariant_do_rysunku == "mniej":
+        punkty = wariant_mniej_slupkow
+        ile_slupkow = ile_mniej
+    elif wariant_do_rysunku == "wiecej":
+        punkty = wariant_wiecej_slupkow
+        ile_slupkow = ile_wiecej
+    else:
+        punkty = wariant_standard
+        ile_slupkow = ile_std
+    
     # Dynamiczna wizualizacja SVG
     st.markdown("---")
     st.subheader("🗺️ Wizualizacja rozmieszczenia słupków")
-    punkty = generuj_pozycje_slupkow(szer_m, dlug_m, rozstaw_cm, poprzeczne, rozstaw_poprzeczny_cm)
-
-    # Skala rysunku (dopasowana do szerokości ekranu ~500 px)
+    
     max_wymiar = max(szer_m, dlug_m)
-    skala = 400 / max_wymiar if max_wymiar > 0 else 50  # 400 px na dłuższy bok
+    skala = 400 / max_wymiar if max_wymiar > 0 else 50
     szer_px = szer_m * skala
     dlug_px = dlug_m * skala
-    promien_slupka = max(3, skala * 0.05)  # dynamiczny promień
-
-    # Budowanie SVG
-    svg = f'<svg width="{szer_px + 60}" height="{dlug_px + 60}" xmlns="http://www.w3.org/2000/svg">'
-    # Tło
-    svg += f'<rect x="30" y="30" width="{szer_px}" height="{dlug_px}" fill="#f9f9f9" stroke="black" stroke-width="2"/>'
-    # Linie siatki?
-    # Słupki
+    promien_slupka = max(8, skala * 0.08)  # 5x większe niż poprzednio (było 0.016)
+    
+    # Budowanie SVG z liniami wymiarowymi
+    svg = f'<svg width="{szer_px + 80}" height="{dlug_px + 80}" xmlns="http://www.w3.org/2000/svg">'
+    svg += f'<rect x="40" y="40" width="{szer_px}" height="{dlug_px}" fill="#f9f9f9" stroke="black" stroke-width="2"/>'
+    
+    # Linie wymiarowe dla boków – pokazują odległości między sąsiednimi słupkami
+    # Sortowanie słupków na dolnym boku (y=0)
+    dolne = sorted([p for p in punkty if abs(p['y']) < 0.01], key=lambda p: p['x'])
+    for i in range(len(dolne)-1):
+        x1 = 40 + dolne[i]['x'] * skala
+        x2 = 40 + dolne[i+1]['x'] * skala
+        y = 40 + dlug_px + 15  # pod rysunkiem
+        odl_m = dolne[i+1]['x'] - dolne[i]['x']
+        svg += f'<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="black" stroke-width="1"/>'
+        svg += f'<text x="{(x1+x2)/2}" y="{y+12}" text-anchor="middle" font-size="9">{odl_m*100:.0f} cm</text>'
+    
+    # Słupki – większe kropki
     for i, p in enumerate(punkty):
-        cx = 30 + p['x'] * skala
-        cy = 30 + (dlug_m - p['y']) * skala  # odwrócenie osi Y
+        cx = 40 + p['x'] * skala
+        cy = 40 + (dlug_m - p['y']) * skala
         kolor = "red" if p['typ'] == 'narozny' else ("blue" if p['typ'] == 'poprzeczny' else "green")
         svg += f'<circle cx="{cx}" cy="{cy}" r="{promien_slupka}" fill="{kolor}" stroke="black" stroke-width="1"/>'
-        svg += f'<text x="{cx+4}" y="{cy-4}" font-size="8">{i+1}</text>'
-    # Linia poprzeczna (jeśli słupki poprzeczne)
+        svg += f'<text x="{cx+promien_slupka+1}" y="{cy-promien_slupka-1}" font-size="7" fill="black">{i+1}</text>'
+    
     if poprzeczne:
-        y_srodka = 30 + dlug_px / 2
-        svg += f'<line x1="30" y1="{y_srodka}" x2="{30 + szer_px}" y2="{y_srodka}" stroke="orange" stroke-dasharray="5,5" stroke-width="2"/>'
+        y_srodka = 40 + dlug_px / 2
+        svg += f'<line x1="40" y1="{y_srodka}" x2="{40 + szer_px}" y2="{y_srodka}" stroke="orange" stroke-dasharray="5,5" stroke-width="2"/>'
+    
     svg += '</svg>'
-
     st.markdown(svg, unsafe_allow_html=True)
-    st.caption("Kolory: 🔴 narożne, 🟢 obwodowe, 🔵 poprzeczne. Pomarańczowa linia – rząd poprzeczny.")
+    st.caption("Kolory: 🔴 narożne, 🟢 obwodowe, 🔵 poprzeczne. Linie wymiarowe pokazują odległości między słupkami na dolnym boku.")
 
 # Na końcu pliku zaktualizuj słownik zakładek (dodaj, jeśli nie ma)
 # zakladki_funkcje["🏛️ Fundamenty"] = fundamenty_tab
