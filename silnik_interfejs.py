@@ -552,6 +552,7 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 
+# ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
         if dlugosc_m <= 0.01:
@@ -633,8 +634,12 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
         elif orientacja == 'prawo':
             x = 40 + szer_m * skala - 15
             y = (cy1 + cy2) / 2
+        elif orientacja == 'poprzeczny':
+            x = (cx1 + cx2) / 2
+            y = cy1 - 10  # nad linią poprzeczną
         svg += f'<text x="{x}" y="{y}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
 
+    # Obwodowe
     dolne = sorted([p for p in punkty if abs(p['y']) < 0.001], key=lambda p: p['x'])
     for i in range(len(dolne)-1):
         dodaj_odleglosci_dla_pary(dolne[i], dolne[i+1], 'dol')
@@ -647,6 +652,20 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
     prawe = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.001], key=lambda p: p['y'])
     for i in range(len(prawe)-1):
         dodaj_odleglosci_dla_pary(prawe[i], prawe[i+1], 'prawo')
+
+    # Poprzeczne
+    poprzeczne = [p for p in punkty if p['typ'] == 'poprzeczny']
+    if poprzeczne:
+        grupy = {}
+        for p in poprzeczne:
+            y_r = round(p['y'], 6)
+            if y_r not in grupy:
+                grupy[y_r] = []
+            grupy[y_r].append(p)
+        for lista in grupy.values():
+            lista.sort(key=lambda p: p['x'])
+            for i in range(len(lista)-1):
+                dodaj_odleglosci_dla_pary(lista[i], lista[i+1], 'poprzeczny')
     return svg
 
 
@@ -891,15 +910,37 @@ def fundamenty_tab():
 
     punkty_final = sortuj_slupki(punkty_final, szer_m, dlug_m)
 
-    # --- chmurka edukacyjna ---
+    # --- Parametry wytrzymałościowe (smukłość, wyboczenie) ---
+    st.markdown("---")
+    st.subheader("📊 Parametry wytrzymałościowe")
+    col_w1, col_w2 = st.columns(2)
+    col_w1.metric("Smukłość λ", f"{sm_final:.0f}")
+    col_w2.metric("Szansa wyboczenia", f"{wyb_final:.1f} %")
+
+    # --- chmurka edukacyjna (z wyraźnymi odstępami) ---
     with st.expander("📖 Jak interpretować wyniki?"):
         st.markdown("""
-        **Liczba słupków** – im więcej, tym obciążenie na jeden słupek jest mniejsze, co zwiększa bezpieczeństwo, ale zwiększa koszty betonu i robocizny.  
-        **Obciążenie na słupek (kN)** – siła, jaką budynek wywiera na jeden słupek. Powinna być mniejsza niż nośność dopuszczalna słupka.  
-        **Nośność dopuszczalna (kN)** – maksymalne obciążenie, jakie słupek może bezpiecznie przenieść (z zapasem).  
-        **Zapas nośności (%)** – o ile procent nośność dopuszczalna przewyższa obciążenie. Zalecany zapas to **15–40%**. Poniżej 10% ryzyko przeciążenia; powyżej 50% – konstrukcja przewymiarowana (nieekonomiczna).  
-        **Smukłość** – stosunek długości wyboczeniowej do promienia bezwładności. Dla słupków fundamentowych bezpieczna smukłość to **40–60**. Powyżej 70 ryzyko wyboczenia gwałtownie rośnie.  
-        **Szansa wyboczenia (%)** – orientacyjny wskaźnik ryzyka wygięcia słupka pod obciążeniem. Wartości poniżej 5% są bezpieczne, 5–15% – akceptowalne, powyżej 15% – zalecane zwiększenie średnicy.  
+        **Liczba słupków** – im więcej, tym obciążenie na jeden słupek jest mniejsze, co zwiększa bezpieczeństwo, ale zwiększa koszty betonu i robocizny.
+
+        ---
+
+        **Obciążenie na słupek (kN)** – siła, jaką budynek wywiera na jeden słupek. Powinna być mniejsza niż nośność dopuszczalna słupka.
+
+        ---
+
+        **Nośność dopuszczalna (kN)** – maksymalne obciążenie, jakie słupek może bezpiecznie przenieść (z zapasem).
+
+        ---
+
+        **Zapas nośności (%)** – o ile procent nośność dopuszczalna przewyższa obciążenie. Zalecany zapas to **15–40%**. Poniżej 10% ryzyko przeciążenia; powyżej 50% – konstrukcja przewymiarowana (nieekonomiczna).
+
+        ---
+
+        **Smukłość** – stosunek długości wyboczeniowej do promienia bezwładności. Dla słupków fundamentowych bezpieczna smukłość to **40–60**. Powyżej 70 ryzyko wyboczenia gwałtownie rośnie.
+
+        ---
+
+        **Szansa wyboczenia (%)** – orientacyjny wskaźnik ryzyka wygięcia słupka pod obciążeniem. Wartości poniżej 5% są bezpieczne, 5–15% – akceptowalne, powyżej 15% – zalecane zwiększenie średnicy.
         """)
 
     st.markdown("---")
@@ -963,8 +1004,6 @@ def fundamenty_tab():
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
-
-  
     
     
       
