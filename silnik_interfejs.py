@@ -547,65 +547,8 @@ def kosztorys_tab():
 # ========== NOWY MODUŁ: FUNDAMENTY ==========
 # ---------- NOWA FUNKCJA POMOCNICZA ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
-def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
-    """
-    Zwraca listę słupków obwodowych z równymi odstępami.
-    Dla każdego boku dobiera liczbę przęseł tak, aby rzeczywisty rozstaw
-    był jak najbliższy zadanemu, ale nie mniejszy niż rozstaw_cm.
-    """
-    def slupki_na_boku(dlugosc_m, rozstaw_cm):
-        if dlugosc_m <= 0.01:
-            return []
-        max_przesel = max(1, int(dlugosc_m * 100 / rozstaw_cm))
-        # Szukamy liczby przęseł dającej rozstaw >= rozstaw_cm
-        for n in range(max_przesel, 0, -1):
-            if dlugosc_m / n >= rozstaw_cm / 100:
-                krok = dlugosc_m / n
-                return [i * krok for i in range(1, n)]
-        return []
+import math
 
-    punkty = []
-    # Narożniki
-    for x in (0, szer_m):
-        for y in (0, dlug_m):
-            punkty.append({'x': x, 'y': y, 'typ': 'narozny'})
-    
-    # Dolna i górna krawędź (y=0, y=dlug_m)
-    for y in (0, dlug_m):
-        for x in slupki_na_boku(szer_m, rozstaw_cm):
-            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
-    
-    # Lewa i prawa krawędź (x=0, x=szer_m)
-    for x in (0, szer_m):
-        for y in slupki_na_boku(dlug_m, rozstaw_cm):
-            punkty.append({'x': x, 'y': y, 'typ': 'obwodowy'})
-    
-    return punkty
-
-
-def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
-    """Dodaje słupki w rzędach poprzecznych (prostopadłych do dłuższego boku)."""
-    if liczba_rzedow <= 0:
-        return punkty
-    
-    # Rzędy równomiernie rozłożone na długości
-    for i in range(1, liczba_rzedow + 1):
-        y = dlug_m * i / (liczba_rzedow + 1)
-        # Słupki na tym rzędzie – narożne już są, dodajemy pośrednie
-        max_przesel = max(1, int(szer_m * 100 / rozstaw_cm))
-        for n in range(max_przesel, 0, -1):
-            if szer_m / n >= rozstaw_cm / 100:
-                krok = szer_m / n
-                for j in range(1, n):
-                    x = j * krok
-                    # Sprawdź, czy nie nachodzi na narożnik
-                    if not any(abs(p['x']-x)<0.01 and abs(p['y']-y)<0.01 for p in punkty):
-                        punkty.append({'x': x, 'y': y, 'typ': 'poprzeczny'})
-                break
-    return punkty
-
-
-# ---------- NOWY MODUŁ: FUNDAMENTY (PRZEPROJEKTOWANY) ----------
 # ---------- FUNKCJE POMOCNICZE ----------
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
@@ -634,57 +577,58 @@ def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
 def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
     if liczba_rzedow <= 0:
         return punkty
+    # Zbieramy pozycje X istniejących słupków na krawędziach (naroznych i obwodowych)
+    x_na_krawedziach = set()
+    for p in punkty:
+        if p['typ'] in ('narozny', 'obwodowy'):
+            x_na_krawedziach.add(round(p['x'], 6))
+    x_na_krawedziach = sorted(list(x_na_krawedziach))
+
     for i in range(1, liczba_rzedow + 1):
         y = dlug_m * i / (liczba_rzedow + 1)
-        max_przesel = max(1, int(szer_m * 100 / rozstaw_cm))
-        for n in range(max_przesel, 0, -1):
-            if szer_m / n >= rozstaw_cm / 100:
-                krok = szer_m / n
-                for j in range(1, n):
-                    x = j * krok
-                    if not any(abs(p['x']-x)<0.01 and abs(p['y']-y)<0.01 for p in punkty):
-                        punkty.append({'x': x, 'y': y, 'typ': 'poprzeczny'})
-                break
+        for x in x_na_krawedziach:
+            # Nie dublujemy narożnych
+            if not any(abs(p['x']-x)<0.001 and abs(p['y']-y)<0.001 for p in punkty):
+                punkty.append({'x': x, 'y': y, 'typ': 'poprzeczny'})
     return punkty
 
 
-def rysuj_linie_wymiarowe(svg, punkty, szer_m, dlug_m, skala, szer_px, dlug_px):
-    """Zwraca SVG z dodanymi liniami wymiarowymi na wszystkich bokach."""
-    def rysuj_bok(punkty, bok):
+def rysuj_odleglosci_na_rysunku(svg, punkty, dlug_m, skala):
+    """Dodaje do SVG napisy z odległościami pomiędzy sąsiednimi słupkami wzdłuż boków i rzędów poprzecznych."""
+    import math
+
+    def dodaj_dla_boku(punkty_na_boku, pionowo=False):
         nonlocal svg
-        if bok == 'dol':
-            slupki = sorted([p for p in punkty if abs(p['y']) < 0.01], key=lambda p: p['x'])
-            base_y = 60 + dlug_px + 25
-        elif bok == 'gora':
-            slupki = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.01], key=lambda p: p['x'])
-            base_y = 60 - 20
-        elif bok == 'lewo':
-            slupki = sorted([p for p in punkty if abs(p['x']) < 0.01], key=lambda p: p['y'])
-            base_x = 60 - 30
-        elif bok == 'prawo':
-            slupki = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.01], key=lambda p: p['y'])
-            base_x = 60 + szer_px + 15
-
-        for i in range(len(slupki) - 1):
-            if bok in ('dol', 'gora'):
-                x1 = 60 + slupki[i]['x'] * skala
-                x2 = 60 + slupki[i+1]['x'] * skala
-                odl = slupki[i+1]['x'] - slupki[i]['x']
-                svg += f'<line x1="{x1}" y1="{base_y}" x2="{x2}" y2="{base_y}" stroke="gray" stroke-width="1"/>'
-                svg += f'<text x="{(x1+x2)/2}" y="{base_y+12}" text-anchor="middle" font-size="9">{odl*100:.0f} cm</text>'
+        for i in range(len(punkty_na_boku) - 1):
+            p1 = punkty_na_boku[i]
+            p2 = punkty_na_boku[i+1]
+            odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2) * 100  # cm
+            if odl < 0.5:
+                continue
+            if pionowo:
+                x_text = 60 + p1['x'] * skala + 20
+                y_text = 60 + (dlug_m - (p1['y'] + p2['y'])/2) * skala + 4
             else:
-                y1 = 60 + (dlug_m - slupki[i]['y']) * skala
-                y2 = 60 + (dlug_m - slupki[i+1]['y']) * skala
-                odl = slupki[i+1]['y'] - slupki[i]['y']
-                svg += f'<line x1="{base_x}" y1="{y1}" x2="{base_x}" y2="{y2}" stroke="gray" stroke-width="1"/>'
-                svg += f'<text x="{base_x+15}" y="{(y1+y2)/2+4}" font-size="9">{odl*100:.0f} cm</text>'
+                x_text = 60 + (p1['x'] + p2['x'])/2 * skala
+                y_text = 60 + (dlug_m - p1['y']) * skala - 8
+            svg += f'<text x="{x_text}" y="{y_text}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
 
-    for bok in ['dol', 'gora', 'lewo', 'prawo']:
-        rysuj_bok(punkty, bok)
+    # Dolny bok (y=0)
+    dolne = sorted([p for p in punkty if abs(p['y']) < 0.01], key=lambda p: p['x'])
+    dodaj_dla_boku(dolne)
+    # Górny bok (y=dlug_m)
+    gorne = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.01], key=lambda p: p['x'])
+    dodaj_dla_boku(gorne)
+    # Lewy bok (x=0)
+    lewe = sorted([p for p in punkty if abs(p['x']) < 0.01], key=lambda p: p['y'])
+    dodaj_dla_boku(lewe, pionowo=True)
+    # Prawy bok (x=szer_m)
+    prawe = sorted([p for p in punkty if abs(p['x'] - dlug_m) < 0.01], key=lambda p: p['y'])
+    dodaj_dla_boku(prawe, pionowo=True)
+
     return svg
 
 
-# ---------- MODUŁ FUNDAMENTY ----------
 def fundamenty_tab():
     st.header("🏛️ Fundamenty – słupki betonowe")
 
@@ -694,7 +638,6 @@ def fundamenty_tab():
 
     st.info(f"📐 Automatycznie pobrano wymiary budynku: **{szer_m:.2f} × {dlug_m:.2f} m** (obwód: {obwod_m:.1f} m)")
 
-    # Obciążenia
     pow_dach = pow_dachu()
     ciezar_dach = pow_dach * 0.5
     ciezar_scian = obwod_m * (st.session_state.wys / 100) * 0.35
@@ -732,7 +675,7 @@ def fundamenty_tab():
         srednica_mm = st.slider("Średnica słupka (mm)", 60, 250, value=st.session_state.fundament_srednica, step=10, key='fundament_srednica')
 
     st.subheader("📏 Rozstaw słupków obwodowych")
-    rozstaw_cm = st.slider("Odległość między słupkami (cm)", 60, 250, 
+    rozstaw_cm = st.slider("Odległość między słupkami (cm)", 60, 250,
                            value=st.session_state.fundament_rozstaw, step=10, key='fundament_rozstaw')
 
     st.subheader("📏 Słupki poprzeczne (wewnętrzne)")
@@ -774,7 +717,6 @@ def fundamenty_tab():
     ile_mniej, obc_mniej, Ndop_mniej, zapas_mniej = oblicz_wariant(punkty_mniej)
     ile_wiecej, obc_wiecej, Ndop_wiecej, zapas_wiecej = oblicz_wariant(punkty_wiecej)
 
-    # Ustalenie zalecanego wariantu
     if zapas_std >= 15:
         zalecany = "standard"
     elif zapas_mniej >= 10 and zapas_mniej < 40:
@@ -790,53 +732,56 @@ def fundamenty_tab():
     col_o1, col_o2, col_o3 = st.columns(3)
 
     with col_o1:
+        kolor = "#e74c3c"  # czerwony
         if zalecany == "mniej":
             st.markdown(f"""
-            <div style="background-color:#2e7d32; padding:10px; border-radius:10px; text-align:center; color:white;">
-            <h4 style="margin:0; color:white;">🔴 Mniej słupków</h4>
-            <p style="margin:5px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
-            <span style="background:white; color:#2e7d32; padding:2px 10px; border-radius:5px; font-weight:bold;">✅ ZALECANE</span>
+            <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
+            <h3 style="margin:0; color:white;">🔴 Mniej słupków</h3>
+            <p style="font-size:16px; margin:8px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
+            <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div style="background-color:#f8f9fa; padding:10px; border-radius:10px; text-align:center; border:2px solid red;">
-            <h4 style="margin:0; color:red;">🔴 Mniej słupków</h4>
-            <p style="margin:5px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
+            <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
+            <h3 style="margin:0; color:white;">🔴 Mniej słupków</h3>
+            <p style="font-size:16px; margin:8px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
     with col_o2:
+        kolor = "#f39c12"  # pomarańczowy
         if zalecany == "standard":
             st.markdown(f"""
-            <div style="background-color:#2e7d32; padding:10px; border-radius:10px; text-align:center; color:white;">
-            <h4 style="margin:0; color:white;">🟠 Standard</h4>
-            <p style="margin:5px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
-            <span style="background:white; color:#2e7d32; padding:2px 10px; border-radius:5px; font-weight:bold;">✅ ZALECANE</span>
+            <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
+            <h3 style="margin:0; color:white;">🟠 Standard</h3>
+            <p style="font-size:16px; margin:8px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
+            <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div style="background-color:#f8f9fa; padding:10px; border-radius:10px; text-align:center; border:2px solid orange;">
-            <h4 style="margin:0; color:orange;">🟠 Standard</h4>
-            <p style="margin:5px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
+            <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
+            <h3 style="margin:0; color:white;">🟠 Standard</h3>
+            <p style="font-size:16px; margin:8px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
     with col_o3:
+        kolor = "#2980b9"  # niebieski
         if zalecany == "wiecej":
             st.markdown(f"""
-            <div style="background-color:#2e7d32; padding:10px; border-radius:10px; text-align:center; color:white;">
-            <h4 style="margin:0; color:white;">🔵 Więcej słupków</h4>
-            <p style="margin:5px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
-            <span style="background:white; color:#2e7d32; padding:2px 10px; border-radius:5px; font-weight:bold;">✅ ZALECANE</span>
+            <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
+            <h3 style="margin:0; color:white;">🔵 Więcej słupków</h3>
+            <p style="font-size:16px; margin:8px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
+            <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div style="background-color:#f8f9fa; padding:10px; border-radius:10px; text-align:center; border:2px solid blue;">
-            <h4 style="margin:0; color:blue;">🔵 Więcej słupków</h4>
-            <p style="margin:5px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
+            <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
+            <h3 style="margin:0; color:white;">🔵 Więcej słupków</h3>
+            <p style="font-size:16px; margin:8px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -868,41 +813,45 @@ def fundamenty_tab():
     dlug_px = dlug_m * skala
     promien = 10
 
-    kolory_wariantow = {"mniej": "red", "standard": "orange", "wiecej": "blue"}
+    kolory_wariantow = {"mniej": "#e74c3c", "standard": "#f39c12", "wiecej": "#2980b9"}
     kolor_slupkow = kolory_wariantow[wybor]
 
-    svg = f'<svg width="{szer_px + 120}" height="{dlug_px + 120}" xmlns="http://www.w3.org/2000/svg">'
-    svg += f'<rect x="60" y="60" width="{szer_px}" height="{dlug_px}" fill="#f0f0f0" stroke="black" stroke-width="2"/>'
+    svg = f'<svg width="{szer_px + 80}" height="{dlug_px + 80}" xmlns="http://www.w3.org/2000/svg">'
+    svg += f'<rect x="40" y="40" width="{szer_px}" height="{dlug_px}" fill="#f9f9f9" stroke="black" stroke-width="2"/>'
 
-    # Linie wymiarowe
-    svg = rysuj_linie_wymiarowe(svg, punkty_final, szer_m, dlug_m, skala, szer_px, dlug_px)
+    # Rysowanie odległości wewnątrz rysunku
+    svg = rysuj_odleglosci_na_rysunku(svg, punkty_final, dlug_m, skala)
 
     # Słupki
     for i, p in enumerate(punkty_final):
-        cx = 60 + p['x'] * skala
-        cy = 60 + (dlug_m - p['y']) * skala
+        cx = 40 + p['x'] * skala
+        cy = 40 + (dlug_m - p['y']) * skala
         svg += f'<circle cx="{cx}" cy="{cy}" r="{promien}" fill="{kolor_slupkow}" stroke="black" stroke-width="1"/>'
-        svg += f'<text x="{cx+promien+2}" y="{cy-promien-2}" font-size="8" fill="black">{i+1}</text>'
+        svg += f'<text x="{cx}" y="{cy+3}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">{i+1}</text>'
 
     svg += '</svg>'
     st.markdown(svg, unsafe_allow_html=True)
 
-    # Tabela
-    st.subheader("📋 Lista słupków")
-    tabela = []
-    for i, p in enumerate(punkty_final):
-        typ = "Narożny" if p['typ'] == 'narozny' else ("Poprzeczny" if p['typ'] == 'poprzeczny' else "Obwodowy")
-        if i == 0:
-            odl = "-"
-        else:
-            dx = p['x'] - punkty_final[i-1]['x']
-            dy = p['y'] - punkty_final[i-1]['y']
-            odl = f"{math.sqrt(dx*dx + dy*dy)*100:.0f} cm"
-        tabela.append([i+1, typ, f"{p['x']:.2f}", f"{p['y']:.2f}", odl])
+    # ---- TABELA ODLEGŁOŚCI ----
+    st.subheader("📋 Odległości pomiędzy słupkami")
+    # Sortujemy słupki wg współrzędnych do odczytania odległości
+    punkty_sorted = sorted(punkty_final, key=lambda p: (p['y'], p['x']))
+    odleglosci = []
+    for i in range(len(punkty_sorted)):
+        for j in range(i+1, len(punkty_sorted)):
+            p1 = punkty_sorted[i]
+            p2 = punkty_sorted[j]
+            # Szukamy sąsiednich na tym samym boku lub w tym samym rzędzie
+            if (abs(p1['x'] - p2['x']) < 0.01 and abs(p1['y'] - p2['y']) > 0.01) or \
+               (abs(p1['y'] - p2['y']) < 0.01 and abs(p1['x'] - p2['x']) > 0.01):
+                dx = p2['x'] - p1['x']
+                dy = p2['y'] - p1['y']
+                odl = math.sqrt(dx*dx + dy*dy) * 100
+                if 0 < odl < (max(szer_m, dlug_m) * 100) + 10:  # realistyczna odległość
+                    odleglosci.append(f"{i+1}-{j+1}: {odl:.0f} cm")
+    if odleglosci:
+        st.markdown("**Odległości między sąsiednimi słupkami:** " + ", ".join(odleglosci))
 
-    st.table([["Nr", "Typ", "X (m)", "Y (m)", "Odległość od poprz."]] + tabela)
-
-    # Klauzula prawna
     st.markdown("---")
     st.warning(
         "⚠️ **Uwaga prawna:** Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
@@ -910,7 +859,7 @@ def fundamenty_tab():
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
-  
+    
 # Na końcu pliku zaktualizuj słownik zakładek (dodaj, jeśli nie ma)
 # zakladki_funkcje["🏛️ Fundamenty"] = fundamenty_tab
 # ========== SŁOWNIK ZAKŁADEK (dodajemy nowe TUTAJ) ==========
