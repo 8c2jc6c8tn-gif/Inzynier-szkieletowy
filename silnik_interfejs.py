@@ -549,6 +549,7 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 
 # ---------- FUNKCJE POMOCNICZE ----------
+# ---------- FUNKCJE POMOCNICZE ----------
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
         if dlugosc_m <= 0.01:
@@ -580,7 +581,6 @@ def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
     for p in punkty:
         if p['typ'] in ('narozny', 'obwodowy'):
             x_na_krawedziach.add(round(p['x'], 6))
-    # Usuwamy skrajne x, aby nie dublować słupków na krawędziach
     x_na_krawedziach.discard(0.0)
     x_na_krawedziach.discard(round(szer_m, 6))
     x_na_krawedziach = sorted(list(x_na_krawedziach))
@@ -593,21 +593,26 @@ def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
 
 
 def sortuj_slupki(punkty, szer_m, dlug_m):
-    obwodowe = [p for p in punkty if p['typ'] in ('narozny', 'obwodowy')]
-    poprzeczne = [p for p in punkty if p['typ'] == 'poprzeczny']
-    
-    # Zbieramy unikalne słupki obwodowe w kolejności: lewy dolny → prawy dolny → prawa krawędź → górna krawędź → lewa krawędź
+    # Zbieramy unikalne obwodowe (narozne + obwodowe) w kolejności: lewy dolny → prawy dolny → prawy górny → lewy górny
+    obwodowe = []
+    for p in punkty:
+        if p['typ'] in ('narozny', 'obwodowy'):
+            if not any(abs(p['x']-o['x'])<0.001 and abs(p['y']-o['y'])<0.001 for o in obwodowe):
+                obwodowe.append(p)
+
+    # Sortujemy: najpierw dolna krawędź (y=0, rosnące x), potem prawa (x=szer_m, y>0 i y<dlug_m, rosnące y),
+    # potem górna (y=dlug_m, malejące x), potem lewa (x=0, y>0 i y<dlug_m, malejące y)
     dol = sorted([p for p in obwodowe if abs(p['y']) < 0.001], key=lambda p: p['x'])
     prawa = sorted([p for p in obwodowe if abs(p['x'] - szer_m) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: p['y'])
     gora = sorted([p for p in obwodowe if abs(p['y'] - dlug_m) < 0.001], key=lambda p: -p['x'])
     lewa = sorted([p for p in obwodowe if abs(p['x']) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: -p['y'])
-    
-    unikalne_obwodowe = []
-    for p in dol + prawa + gora + lewa:
-        if not any(abs(p['x']-u['x'])<0.001 and abs(p['y']-u['y'])<0.001 for u in unikalne_obwodowe):
-            unikalne_obwodowe.append(p)
-    
+
+    unikalne_obwodowe = dol + prawa + gora + lewa
+
+    # Poprzeczne – sortujemy po y, potem x
+    poprzeczne = [p for p in punkty if p['typ'] == 'poprzeczny']
     poprzeczne.sort(key=lambda p: (p['y'], p['x']))
+
     return unikalne_obwodowe + poprzeczne
 
 
@@ -623,10 +628,10 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
             return
         if orientacja == 'dol':
             x = (cx1 + cx2) / 2
-            y = 40 + dlug_m * skala - 12  # nad dolną krawędzią
+            y = 40 + dlug_m * skala - 12
         elif orientacja == 'gora':
             x = (cx1 + cx2) / 2
-            y = 40 + 15  # pod górną krawędzią
+            y = 40 + 15
         elif orientacja == 'lewo':
             x = 40 + 15
             y = (cy1 + cy2) / 2
@@ -635,19 +640,15 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
             y = (cy1 + cy2) / 2
         svg += f'<text x="{x}" y="{y}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
 
-    # Dolne słupki (y=0)
     dolne = sorted([p for p in punkty if abs(p['y']) < 0.001], key=lambda p: p['x'])
     for i in range(len(dolne)-1):
         dodaj_odleglosci_dla_pary(dolne[i], dolne[i+1], 'dol')
-    # Górne słupki (y=dlug_m)
     gorne = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.001], key=lambda p: p['x'])
     for i in range(len(gorne)-1):
         dodaj_odleglosci_dla_pary(gorne[i], gorne[i+1], 'gora')
-    # Lewe słupki (x=0)
     lewe = sorted([p for p in punkty if abs(p['x']) < 0.001], key=lambda p: p['y'])
     for i in range(len(lewe)-1):
         dodaj_odleglosci_dla_pary(lewe[i], lewe[i+1], 'lewo')
-    # Prawe słupki (x=szer_m)
     prawe = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.001], key=lambda p: p['y'])
     for i in range(len(prawe)-1):
         dodaj_odleglosci_dla_pary(prawe[i], prawe[i+1], 'prawo')
@@ -689,10 +690,19 @@ def fundamenty_tab():
 
     with st.expander("🧪 Jak sprawdzić rodzaj gruntu? (test butelkowy)"):
         st.markdown("""
-        **Test butelkowy:**
-        1. Pobierz ziemię z głębokości ok. **80–100 cm**.
-        2. Wsyp do butelki (½ wysokości), dolej wody, wstrząśnij.
-        3. Po 24 h odczytaj: **piasek** opada szybko (woda klarowna), **glina** – woda mętna, osad zbity.
+        **Test butelkowy – jak w prosty sposób ocenić grunt na działce:**
+        1. Wykop niewielką dziurę na głębokość **80–100 cm** (poniżej warstwy humusu).
+        2. Z dna dziury pobierz około **pół szklanki ziemi**.
+        3. Wsyp ziemię do przezroczystej butelki (np. 0,5 l) do **⅓ wysokości**.
+        4. Dolej **wody do ¾ butelki** i mocno wstrząśnij przez 1 minutę.
+        5. Odstaw butelkę na **24 godziny** w nieruchome miejsce.
+
+        **Jak odczytać wynik:**
+        - **Piasek**: osad opada szybko (w ciągu kilku minut), woda nad osadem jest prawie przejrzysta. Warstwy: na dnie piasek gruboziarnisty, wyżej drobny.
+        - **Glina**: woda pozostaje mętna przez wiele godzin, osad jest jednolity, zbity i tłusty w dotyku (po zlaniu wody).
+        - **Piasek gliniasty**: drobne cząstki długo utrzymują się w wodzie, ale na dnie widać warstwę piasku. Po 24 h woda może być lekko mętna.
+
+        Dla budownictwa szkieletowego **najlepsze są piaski i żwiry** – gliny wymagają większych średnic i głębokości słupków.
         """)
 
     col_f1, col_f2 = st.columns(2)
@@ -863,49 +873,56 @@ def fundamenty_tab():
     # ---- TABELA ODLEGŁOŚCI ----
     st.subheader("📋 Odległości pomiędzy słupkami")
 
-    # Tworzymy listę par (indeksy, odległość)
-    odleglosci = []
+    # Odległości między kolejnymi słupkami w posortowanej liście
+    odleglosci_sasiednie = []
     for i in range(len(punkty_final) - 1):
         p1 = punkty_final[i]
         p2 = punkty_final[i+1]
         dx = p2['x'] - p1['x']
         dy = p2['y'] - p1['y']
         odl = math.sqrt(dx*dx + dy*dy) * 100
-        if odl < 0.5:
-            continue
-        odleglosci.append((i+1, i+2, odl))
+        if odl > 0.5:
+            odleglosci_sasiednie.append((i+1, i+2, odl))
 
-    # Wyodrębniamy odległości między słupkami narożnymi
-    narozne_indices = [i for i, p in enumerate(punkty_final) if p['typ'] == 'narozny']
-    odleglosci_narozne = []
-    for idx in narozne_indices:
-        # Szukamy sąsiedniego narożnego (w obwodzie)
-        for j in narozne_indices:
-            if j == idx:
-                continue
-            # Sprawdzamy, czy są sąsiednie na obwodzie (bez innych między nimi)
-            # Możemy to sprawdzić przez odległość i kolejność w obwodzie, ale dla uproszczenia pokażemy wszystkie odległości między narożnymi, które są na tym samym boku
-            p1 = punkty_final[idx]
-            p2 = punkty_final[j]
-            if (abs(p1['x'] - p2['x']) < 0.001 or abs(p1['y'] - p2['y']) < 0.001):
-                dx = p2['x'] - p1['x']
-                dy = p2['y'] - p1['y']
-                odl = math.sqrt(dx*dx + dy*dy) * 100
-                if odl > 0 and odl < max(szer_m, dlug_m) * 100 + 10:
-                    odleglosci_narozne.append((idx+1, j+1, odl))
+    # Odległości w rzędach poprzecznych (między słupkami o tym samym y)
+    poprzeczne = [p for p in punkty_final if p['typ'] == 'poprzeczny']
+    odleglosci_poprzeczne = []
+    if poprzeczne:
+        # Grupujemy według y
+        grupy = {}
+        for p in poprzeczne:
+            y_rounded = round(p['y'], 6)
+            if y_rounded not in grupy:
+                grupy[y_rounded] = []
+            grupy[y_rounded].append(p)
+        for y_rounded, lista in grupy.items():
+            lista.sort(key=lambda p: p['x'])
+            for i in range(len(lista)-1):
+                p1 = lista[i]
+                p2 = lista[i+1]
+                odl = (p2['x'] - p1['x']) * 100
+                if odl > 0.5:
+                    # Znajdujemy indeksy tych punktów w posortowanej liście
+                    idx1 = next(idx for idx, p in enumerate(punkty_final) if abs(p['x']-p1['x'])<0.001 and abs(p['y']-p1['y'])<0.001)
+                    idx2 = next(idx for idx, p in enumerate(punkty_final) if abs(p['x']-p2['x'])<0.001 and abs(p['y']-p2['y'])<0.001)
+                    odleglosci_poprzeczne.append((idx1+1, idx2+1, odl))
 
-    if odleglosci_narozne:
-        st.markdown("**Odległości między słupkami narożnymi:**")
-        for (i, j, odl) in odleglosci_narozne:
-            st.write(f"- {i} ↔ {j}: **{odl:.0f} cm**")
+    # Wyświetlamy
+    if odleglosci_sasiednie:
+        st.markdown("**Odległości między kolejnymi słupkami (zgodnie z numeracją):**")
+        col_odl = st.columns(4)
+        for idx, (i, j, odl) in enumerate(odleglosci_sasiednie):
+            col = idx % 4
+            with col_odl[col]:
+                st.write(f"{i} → {j}: {odl:.0f} cm")
 
-    st.markdown("**Pełna lista odległości (kolejno od słupka 1):**")
-    # Wyświetlamy w kolumnach
-    col_odl = st.columns(3)
-    for idx, (i, j, odl) in enumerate(odleglosci):
-        col = idx % 3
-        with col_odl[col]:
-            st.write(f"{i} → {j}: {odl:.0f} cm")
+    if odleglosci_poprzeczne:
+        st.markdown("**Odległości w rzędach poprzecznych (między sąsiednimi słupkami):**")
+        col_pop = st.columns(4)
+        for idx, (i, j, odl) in enumerate(odleglosci_poprzeczne):
+            col = idx % 4
+            with col_pop[col]:
+                st.write(f"{i} → {j}: {odl:.0f} cm")
 
     st.markdown("---")
     st.warning(
@@ -914,8 +931,10 @@ def fundamenty_tab():
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
+    
 
-
+        
+    
      
             
 # Na końcu pliku zaktualizuj słownik zakładek (dodaj, jeśli nie ma)
