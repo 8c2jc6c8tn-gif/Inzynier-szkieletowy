@@ -558,6 +558,7 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE ----------
 # ---------- FUNKCJE POMOCNICZE ----------
 # ---------- FUNKCJE POMOCNICZE ----------
+# ---------- FUNKCJE POMOCNICZE ----------
 import math
 import base64
 from fpdf import FPDF
@@ -690,10 +691,12 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
     pdf.add_page()
     pdf.set_font("Arial", size=10)
 
+    # Tytuł
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(0, 10, txt="Raport - Fundamenty", ln=True, align='C')
     pdf.ln(10)
 
+    # Parametry
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, txt="Parametry budynku i gruntu", ln=True)
     pdf.set_font("Arial", size=10)
@@ -703,6 +706,7 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
     pdf.cell(0, 6, txt=f"Rozstaw obwodowy: {rozstaw_cm} cm, Rzedy poprzeczne: {liczba_rzedow}", ln=True)
     pdf.ln(5)
 
+    # Wyniki
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, txt="Wyniki obliczen", ln=True)
     pdf.set_font("Arial", size=10)
@@ -713,19 +717,29 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
     pdf.cell(0, 6, txt=f"Smuklosc: {smuklosc:.0f}, Szansa wyboczenia: {szansa_wyboczenia:.0f}%", ln=True)
     pdf.ln(8)
 
-    # Rysunek schematyczny
+    # Rysunek schematyczny (proporcjonalny, mieszczący się na A4)
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, txt="Schemat fundamentu", ln=True)
-    skala_pdf = 30
+
+    # Dostępna przestrzeń (uwzględniam marginesy 15 mm z każdej strony)
+    max_szer = 190  # mm
+    max_wys = 250   # mm
+    skala_pdf = min(max_szer / szer_m, max_wys / dlug_m, 30)  # max 30 mm/m
     margines_x = 15
     margines_y = pdf.get_y() + 5
     szer_px = szer_m * skala_pdf
     dlug_px = dlug_m * skala_pdf
+
+    # Obrys fundamentu
     pdf.rect(margines_x, margines_y, szer_px, dlug_px)
+
+    # Słupki (kwadraciki)
     for p in punkty_final:
         cx = margines_x + p['x'] * skala_pdf
         cy = margines_y + (dlug_m - p['y']) * skala_pdf
         pdf.rect(cx - 1.5, cy - 1.5, 3, 3, 'D')
+
+    # Linia wymiarowa dolna i opisy odległości
     dolne = sorted([p for p in punkty_final if abs(p['y']) < 0.001], key=lambda p: p['x'])
     y_linii = margines_y + dlug_px + 8
     for i in range(len(dolne)-1):
@@ -734,7 +748,17 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
         odl = (dolne[i+1]['x'] - dolne[i]['x']) * 100
         pdf.line(x1, y_linii, x2, y_linii)
         pdf.text((x1+x2)/2 - 5, y_linii + 4, f"{odl:.0f} cm")
-    pdf.ln(dlug_px + 20)
+
+    # Przekątna (lewy dolny – prawy górny)
+    x1_diag = margines_x
+    y1_diag = margines_y + dlug_px
+    x2_diag = margines_x + szer_px
+    y2_diag = margines_y
+    pdf.line(x1_diag, y1_diag, x2_diag, y2_diag)
+    przekatna_odl = math.sqrt(szer_m**2 + dlug_m**2) * 100
+    pdf.text((x1_diag + x2_diag) / 2 + 2, (y1_diag + y2_diag) / 2, f"{przekatna_odl:.0f} cm")
+
+    pdf.ln(dlug_px + 25)  # odstęp po rysunku
 
     # Tabela odległości
     pdf.set_font("Arial", 'B', 12)
@@ -754,7 +778,7 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
 
     pdf.ln(5)
 
-    # Klauzula prawna – przepuszczona przez usun_polskie_znaki
+    # Klauzula prawna
     klauzula = (
         "Uwaga prawna: Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
         "Wyniki maja charakter orientacyjny i nie stanowia podstawy do wykonania fundamentow bez konsultacji "
@@ -1045,9 +1069,8 @@ def fundamenty_tab():
         md_table = "| Start | Koniec | Odległość |\n|-------|--------|------------|\n"
         for i, j, odl in odleglosci_sasiednie:
             md_table += f"| {i} | {j} | {odl:.0f} cm |\n"
-        col1, col2, col3 = st.columns([1, 4, 1])
-        with col2:
-            st.markdown(md_table)
+        # Wyśrodkowanie za pomocą div z flexbox
+        st.markdown(f"<div style='display:flex; justify-content:center;'>{md_table}</div>", unsafe_allow_html=True)
     else:
         st.write("*Brak odległości do wyświetlenia.*")
 
