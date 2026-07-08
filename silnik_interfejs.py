@@ -552,6 +552,12 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
+# ---------- FUNKCJE POMOCNICZE ----------
+import math
+import base64
+from fpdf import FPDF
+import os
+
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
         if dlugosc_m <= 0.01:
@@ -623,10 +629,10 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
             return
         if orientacja == 'dol':
             x = (cx1 + cx2) / 2
-            y = 40 + dlug_m * skala - 12
+            y = 40 + dlug_m * skala - 12   # nad dolną krawędzią (wewnątrz)
         elif orientacja == 'gora':
             x = (cx1 + cx2) / 2
-            y = 40 + 15
+            y = 40 + 15                     # pod górną krawędzią (wewnątrz)
         elif orientacja == 'lewo':
             x = 40 + 15
             y = (cy1 + cy2) / 2
@@ -635,10 +641,9 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
             y = (cy1 + cy2) / 2
         elif orientacja == 'poprzeczny':
             x = (cx1 + cx2) / 2
-            y = cy1 - 10  # nad linią poprzeczną
+            y = cy1 - 10                    # nad linią poprzeczną
         svg += f'<text x="{x}" y="{y}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
 
-    # Obwodowe
     dolne = sorted([p for p in punkty if abs(p['y']) < 0.001], key=lambda p: p['x'])
     for i in range(len(dolne)-1):
         dodaj_odleglosci_dla_pary(dolne[i], dolne[i+1], 'dol')
@@ -652,7 +657,6 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
     for i in range(len(prawe)-1):
         dodaj_odleglosci_dla_pary(prawe[i], prawe[i+1], 'prawo')
 
-    # Poprzeczne
     poprzeczne = [p for p in punkty if p['typ'] == 'poprzeczny']
     if poprzeczne:
         grupy = {}
@@ -730,7 +734,6 @@ def fundamenty_tab():
 
     st.info(f"📐 Automatycznie pobrano wymiary budynku: **{szer_m:.2f} × {dlug_m:.2f} m** (obwód: {obwod_m:.1f} m)")
 
-    # Obciążenia
     pow_dach = pow_dachu()
     ciezar_dach = pow_dach * 0.5
     ciezar_scian = obwod_m * (st.session_state.wys / 100) * 0.35
@@ -842,6 +845,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
             <h3 style="margin:0; color:white;">🔴 Mniej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
+            <p style="font-size:14px; margin:4px 0;">λ={sm_mniej:.0f} | wyb. {wyb_mniej:.0f}%</p>
             <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
@@ -850,6 +854,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
             <h3 style="margin:0; color:white;">🔴 Mniej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_mniej} szt.</b> | obc. {obc_mniej:.1f} kN | zapas {zapas_mniej:.0f}%</p>
+            <p style="font-size:14px; margin:4px 0;">λ={sm_mniej:.0f} | wyb. {wyb_mniej:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -860,6 +865,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
             <h3 style="margin:0; color:white;">🟠 Standard</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
+            <p style="font-size:14px; margin:4px 0;">λ={sm_std:.0f} | wyb. {wyb_std:.0f}%</p>
             <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
@@ -868,6 +874,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
             <h3 style="margin:0; color:white;">🟠 Standard</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_std} szt.</b> | obc. {obc_std:.1f} kN | zapas {zapas_std:.0f}%</p>
+            <p style="font-size:14px; margin:4px 0;">λ={sm_std:.0f} | wyb. {wyb_std:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -878,6 +885,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
             <h3 style="margin:0; color:white;">🔵 Więcej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
+            <p style="font-size:14px; margin:4px 0;">λ={sm_wiecej:.0f} | wyb. {wyb_wiecej:.0f}%</p>
             <span style="background:white; color:{kolor}; padding:3px 14px; border-radius:8px; font-weight:bold;">✅ ZALECANE</span>
             </div>
             """, unsafe_allow_html=True)
@@ -886,6 +894,7 @@ def fundamenty_tab():
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white; opacity:0.8;">
             <h3 style="margin:0; color:white;">🔵 Więcej słupków</h3>
             <p style="font-size:16px; margin:8px 0;"><b>{ile_wiecej} szt.</b> | obc. {obc_wiecej:.1f} kN | zapas {zapas_wiecej:.0f}%</p>
+            <p style="font-size:14px; margin:4px 0;">λ={sm_wiecej:.0f} | wyb. {wyb_wiecej:.0f}%</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -908,13 +917,6 @@ def fundamenty_tab():
         ile_final, obc_final, Ndop_final, zapas_final, sm_final, wyb_final = ile_std, obc_std, Ndop_std, zapas_std, sm_std, wyb_std
 
     punkty_final = sortuj_slupki(punkty_final, szer_m, dlug_m)
-
-    # --- Parametry wytrzymałościowe (smukłość, wyboczenie) ---
-    st.markdown("---")
-    st.subheader("📊 Parametry wytrzymałościowe")
-    col_w1, col_w2 = st.columns(2)
-    col_w1.metric("Smukłość λ", f"{sm_final:.0f}")
-    col_w2.metric("Szansa wyboczenia", f"{wyb_final:.1f} %")
 
     # --- chmurka edukacyjna (z wyraźnymi odstępami) ---
     with st.expander("📖 Jak interpretować wyniki?"):
@@ -966,36 +968,64 @@ def fundamenty_tab():
     svg += '</svg>'
     st.markdown(svg, unsafe_allow_html=True)
 
-    # Tabela odległości
+    # Tabela odległości z wyróżnieniem narożnych
     st.subheader("📋 Odległości pomiędzy słupkami")
+    # Najpierw odległości między narożnymi (tylko na obwodzie)
+    narozne = [p for p in punkty_final if p['typ'] == 'narozny']
+    odleglosci_narozne = []
+    for i in range(len(narozne)):
+        for j in range(i+1, len(narozne)):
+            p1 = narozne[i]
+            p2 = narozne[j]
+            # sprawdzamy, czy są na tym samym boku
+            if (abs(p1['x'] - p2['x']) < 0.001 or abs(p1['y'] - p2['y']) < 0.001):
+                odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2)*100
+                if 0.5 < odl < max(szer_m, dlug_m)*100+10:
+                    # znajdujemy numery indeksów
+                    idx1 = punkty_final.index(p1) + 1
+                    idx2 = punkty_final.index(p2) + 1
+                    odleglosci_narozne.append((idx1, idx2, odl))
+
+    if odleglosci_narozne:
+        st.markdown("**Odległości między słupkami narożnymi:**")
+        for (i, j, odl) in odleglosci_narozne:
+            st.write(f"- {i} ↔ {j}: **{odl:.0f} cm**")
+    else:
+        st.write("*Brak słupków narożnych.*")
+
+    st.markdown("**Pełna lista odległości (kolejno od słupka 1):**")
     odleglosci_sasiednie = []
     for i in range(len(punkty_final) - 1):
         p1 = punkty_final[i]
         p2 = punkty_final[i+1]
-        dx = p2['x'] - p1['x']
-        dy = p2['y'] - p1['y']
-        odl = math.sqrt(dx*dx + dy*dy) * 100
+        odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2)*100
         if odl > 0.5:
             odleglosci_sasiednie.append((i+1, i+2, odl))
+
     if odleglosci_sasiednie:
         col_odl = st.columns(4)
         for idx, (i, j, odl) in enumerate(odleglosci_sasiednie):
             col = idx % 4
             with col_odl[col]:
                 st.write(f"{i} → {j}: {odl:.0f} cm")
+    else:
+        st.write("*Brak odległości do wyświetlenia.*")
 
     # Przycisk PDF
     st.markdown("---")
     if st.button("📄 Eksportuj raport do PDF"):
-        pdf_path = create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
-                              liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
-                              sm_final, wyb_final, punkty_final)
-        with open(pdf_path, "rb") as f:
-            pdf_bytes = f.read()
-        b64 = base64.b64encode(pdf_bytes).decode()
-        href = f'<a href="data:application/octet-stream;base64,{b64}" download="raport_fundamenty.pdf">Kliknij tutaj, aby pobrać PDF</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        os.remove(pdf_path)
+        try:
+            pdf_path = create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
+                                  liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
+                                  sm_final, wyb_final, punkty_final)
+            with open(pdf_path, "rb") as f:
+                pdf_bytes = f.read()
+            b64 = base64.b64encode(pdf_bytes).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="raport_fundamenty.pdf">Pobierz raport PDF</a>'
+            st.markdown(href, unsafe_allow_html=True)
+            os.remove(pdf_path)
+        except Exception as e:
+            st.error(f"Nie udało się wygenerować PDF: {e}")
 
     st.warning(
         "⚠️ **Uwaga prawna:** Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
@@ -1003,7 +1033,8 @@ def fundamenty_tab():
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
-        
+
+
     
      
             
