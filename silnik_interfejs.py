@@ -547,7 +547,6 @@ def kosztorys_tab():
 # ========== NOWY MODUŁ: FUNDAMENTY ==========
 # ---------- NOWA FUNKCJA POMOCNICZA ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
-import math
 
 # ---------- FUNKCJE POMOCNICZE ----------
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
@@ -577,54 +576,81 @@ def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
 def dodaj_slupki_poprzeczne(punkty, szer_m, dlug_m, liczba_rzedow, rozstaw_cm):
     if liczba_rzedow <= 0:
         return punkty
-    # Zbieramy pozycje X istniejących słupków na krawędziach (naroznych i obwodowych)
     x_na_krawedziach = set()
     for p in punkty:
         if p['typ'] in ('narozny', 'obwodowy'):
             x_na_krawedziach.add(round(p['x'], 6))
+    # Usuwamy skrajne x, aby nie dublować słupków na krawędziach
+    x_na_krawedziach.discard(0.0)
+    x_na_krawedziach.discard(round(szer_m, 6))
     x_na_krawedziach = sorted(list(x_na_krawedziach))
-
     for i in range(1, liczba_rzedow + 1):
         y = dlug_m * i / (liczba_rzedow + 1)
         for x in x_na_krawedziach:
-            # Nie dublujemy narożnych
             if not any(abs(p['x']-x)<0.001 and abs(p['y']-y)<0.001 for p in punkty):
                 punkty.append({'x': x, 'y': y, 'typ': 'poprzeczny'})
     return punkty
 
 
-def rysuj_odleglosci_na_rysunku(svg, punkty, dlug_m, skala):
-    """Dodaje do SVG napisy z odległościami pomiędzy sąsiednimi słupkami wzdłuż boków i rzędów poprzecznych."""
-    import math
+def sortuj_slupki(punkty, szer_m, dlug_m):
+    obwodowe = [p for p in punkty if p['typ'] in ('narozny', 'obwodowy')]
+    poprzeczne = [p for p in punkty if p['typ'] == 'poprzeczny']
+    
+    # Zbieramy unikalne słupki obwodowe w kolejności: lewy dolny → prawy dolny → prawa krawędź → górna krawędź → lewa krawędź
+    dol = sorted([p for p in obwodowe if abs(p['y']) < 0.001], key=lambda p: p['x'])
+    prawa = sorted([p for p in obwodowe if abs(p['x'] - szer_m) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: p['y'])
+    gora = sorted([p for p in obwodowe if abs(p['y'] - dlug_m) < 0.001], key=lambda p: -p['x'])
+    lewa = sorted([p for p in obwodowe if abs(p['x']) < 0.001 and p['y'] > 0.001 and p['y'] < dlug_m - 0.001], key=lambda p: -p['y'])
+    
+    unikalne_obwodowe = []
+    for p in dol + prawa + gora + lewa:
+        if not any(abs(p['x']-u['x'])<0.001 and abs(p['y']-u['y'])<0.001 for u in unikalne_obwodowe):
+            unikalne_obwodowe.append(p)
+    
+    poprzeczne.sort(key=lambda p: (p['y'], p['x']))
+    return unikalne_obwodowe + poprzeczne
 
-    def dodaj_dla_boku(punkty_na_boku, pionowo=False):
+
+def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
+    def dodaj_odleglosci_dla_pary(p1, p2, orientacja):
         nonlocal svg
-        for i in range(len(punkty_na_boku) - 1):
-            p1 = punkty_na_boku[i]
-            p2 = punkty_na_boku[i+1]
-            odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2) * 100  # cm
-            if odl < 0.5:
-                continue
-            if pionowo:
-                x_text = 60 + p1['x'] * skala + 20
-                y_text = 60 + (dlug_m - (p1['y'] + p2['y'])/2) * skala + 4
-            else:
-                x_text = 60 + (p1['x'] + p2['x'])/2 * skala
-                y_text = 60 + (dlug_m - p1['y']) * skala - 8
-            svg += f'<text x="{x_text}" y="{y_text}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
+        cx1 = 40 + p1['x'] * skala
+        cy1 = 40 + (dlug_m - p1['y']) * skala
+        cx2 = 40 + p2['x'] * skala
+        cy2 = 40 + (dlug_m - p2['y']) * skala
+        odl = math.sqrt((p2['x']-p1['x'])**2 + (p2['y']-p1['y'])**2) * 100
+        if odl < 0.5:
+            return
+        if orientacja == 'dol':
+            x = (cx1 + cx2) / 2
+            y = 40 + dlug_m * skala - 12  # nad dolną krawędzią
+        elif orientacja == 'gora':
+            x = (cx1 + cx2) / 2
+            y = 40 + 15  # pod górną krawędzią
+        elif orientacja == 'lewo':
+            x = 40 + 15
+            y = (cy1 + cy2) / 2
+        elif orientacja == 'prawo':
+            x = 40 + szer_m * skala - 15
+            y = (cy1 + cy2) / 2
+        svg += f'<text x="{x}" y="{y}" font-size="8" fill="black" text-anchor="middle">{odl:.0f} cm</text>'
 
-    # Dolny bok (y=0)
-    dolne = sorted([p for p in punkty if abs(p['y']) < 0.01], key=lambda p: p['x'])
-    dodaj_dla_boku(dolne)
-    # Górny bok (y=dlug_m)
-    gorne = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.01], key=lambda p: p['x'])
-    dodaj_dla_boku(gorne)
-    # Lewy bok (x=0)
-    lewe = sorted([p for p in punkty if abs(p['x']) < 0.01], key=lambda p: p['y'])
-    dodaj_dla_boku(lewe, pionowo=True)
-    # Prawy bok (x=szer_m)
-    prawe = sorted([p for p in punkty if abs(p['x'] - dlug_m) < 0.01], key=lambda p: p['y'])
-    dodaj_dla_boku(prawe, pionowo=True)
+    # Dolne słupki (y=0)
+    dolne = sorted([p for p in punkty if abs(p['y']) < 0.001], key=lambda p: p['x'])
+    for i in range(len(dolne)-1):
+        dodaj_odleglosci_dla_pary(dolne[i], dolne[i+1], 'dol')
+    # Górne słupki (y=dlug_m)
+    gorne = sorted([p for p in punkty if abs(p['y'] - dlug_m) < 0.001], key=lambda p: p['x'])
+    for i in range(len(gorne)-1):
+        dodaj_odleglosci_dla_pary(gorne[i], gorne[i+1], 'gora')
+    # Lewe słupki (x=0)
+    lewe = sorted([p for p in punkty if abs(p['x']) < 0.001], key=lambda p: p['y'])
+    for i in range(len(lewe)-1):
+        dodaj_odleglosci_dla_pary(lewe[i], lewe[i+1], 'lewo')
+    # Prawe słupki (x=szer_m)
+    prawe = sorted([p for p in punkty if abs(p['x'] - szer_m) < 0.001], key=lambda p: p['y'])
+    for i in range(len(prawe)-1):
+        dodaj_odleglosci_dla_pary(prawe[i], prawe[i+1], 'prawo')
 
     return svg
 
@@ -638,6 +664,7 @@ def fundamenty_tab():
 
     st.info(f"📐 Automatycznie pobrano wymiary budynku: **{szer_m:.2f} × {dlug_m:.2f} m** (obwód: {obwod_m:.1f} m)")
 
+    # Obciążenia
     pow_dach = pow_dachu()
     ciezar_dach = pow_dach * 0.5
     ciezar_scian = obwod_m * (st.session_state.wys / 100) * 0.35
@@ -732,7 +759,7 @@ def fundamenty_tab():
     col_o1, col_o2, col_o3 = st.columns(3)
 
     with col_o1:
-        kolor = "#e74c3c"  # czerwony
+        kolor = "#e74c3c"
         if zalecany == "mniej":
             st.markdown(f"""
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
@@ -750,7 +777,7 @@ def fundamenty_tab():
             """, unsafe_allow_html=True)
 
     with col_o2:
-        kolor = "#f39c12"  # pomarańczowy
+        kolor = "#f39c12"
         if zalecany == "standard":
             st.markdown(f"""
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
@@ -768,7 +795,7 @@ def fundamenty_tab():
             """, unsafe_allow_html=True)
 
     with col_o3:
-        kolor = "#2980b9"  # niebieski
+        kolor = "#2980b9"
         if zalecany == "wiecej":
             st.markdown(f"""
             <div style="background-color:{kolor}; padding:12px; border-radius:12px; text-align:center; color:white;">
@@ -803,9 +830,12 @@ def fundamenty_tab():
         punkty_final = punkty_standard
         ile_final = ile_std
 
-    # ---- WIZUALIZACJA SVG ----
+    # Sortujemy słupki, aby numeracja była logiczna
+    punkty_final = sortuj_slupki(punkty_final, szer_m, dlug_m)
+
     st.markdown("---")
     st.subheader("🗺️ Rysunek fundamentu z wymiarami")
+    st.caption("📏 Odległości liczone od środka słupka do środka słupka.")
 
     max_wymiar = max(szer_m, dlug_m)
     skala = 450 / max_wymiar if max_wymiar > 0 else 50
@@ -819,10 +849,8 @@ def fundamenty_tab():
     svg = f'<svg width="{szer_px + 80}" height="{dlug_px + 80}" xmlns="http://www.w3.org/2000/svg">'
     svg += f'<rect x="40" y="40" width="{szer_px}" height="{dlug_px}" fill="#f9f9f9" stroke="black" stroke-width="2"/>'
 
-    # Rysowanie odległości wewnątrz rysunku
-    svg = rysuj_odleglosci_na_rysunku(svg, punkty_final, dlug_m, skala)
+    svg = rysuj_odleglosci_na_rysunku(svg, punkty_final, szer_m, dlug_m, skala)
 
-    # Słupki
     for i, p in enumerate(punkty_final):
         cx = 40 + p['x'] * skala
         cy = 40 + (dlug_m - p['y']) * skala
@@ -834,23 +862,50 @@ def fundamenty_tab():
 
     # ---- TABELA ODLEGŁOŚCI ----
     st.subheader("📋 Odległości pomiędzy słupkami")
-    # Sortujemy słupki wg współrzędnych do odczytania odległości
-    punkty_sorted = sorted(punkty_final, key=lambda p: (p['y'], p['x']))
+
+    # Tworzymy listę par (indeksy, odległość)
     odleglosci = []
-    for i in range(len(punkty_sorted)):
-        for j in range(i+1, len(punkty_sorted)):
-            p1 = punkty_sorted[i]
-            p2 = punkty_sorted[j]
-            # Szukamy sąsiednich na tym samym boku lub w tym samym rzędzie
-            if (abs(p1['x'] - p2['x']) < 0.01 and abs(p1['y'] - p2['y']) > 0.01) or \
-               (abs(p1['y'] - p2['y']) < 0.01 and abs(p1['x'] - p2['x']) > 0.01):
+    for i in range(len(punkty_final) - 1):
+        p1 = punkty_final[i]
+        p2 = punkty_final[i+1]
+        dx = p2['x'] - p1['x']
+        dy = p2['y'] - p1['y']
+        odl = math.sqrt(dx*dx + dy*dy) * 100
+        if odl < 0.5:
+            continue
+        odleglosci.append((i+1, i+2, odl))
+
+    # Wyodrębniamy odległości między słupkami narożnymi
+    narozne_indices = [i for i, p in enumerate(punkty_final) if p['typ'] == 'narozny']
+    odleglosci_narozne = []
+    for idx in narozne_indices:
+        # Szukamy sąsiedniego narożnego (w obwodzie)
+        for j in narozne_indices:
+            if j == idx:
+                continue
+            # Sprawdzamy, czy są sąsiednie na obwodzie (bez innych między nimi)
+            # Możemy to sprawdzić przez odległość i kolejność w obwodzie, ale dla uproszczenia pokażemy wszystkie odległości między narożnymi, które są na tym samym boku
+            p1 = punkty_final[idx]
+            p2 = punkty_final[j]
+            if (abs(p1['x'] - p2['x']) < 0.001 or abs(p1['y'] - p2['y']) < 0.001):
                 dx = p2['x'] - p1['x']
                 dy = p2['y'] - p1['y']
                 odl = math.sqrt(dx*dx + dy*dy) * 100
-                if 0 < odl < (max(szer_m, dlug_m) * 100) + 10:  # realistyczna odległość
-                    odleglosci.append(f"{i+1}-{j+1}: {odl:.0f} cm")
-    if odleglosci:
-        st.markdown("**Odległości między sąsiednimi słupkami:** " + ", ".join(odleglosci))
+                if odl > 0 and odl < max(szer_m, dlug_m) * 100 + 10:
+                    odleglosci_narozne.append((idx+1, j+1, odl))
+
+    if odleglosci_narozne:
+        st.markdown("**Odległości między słupkami narożnymi:**")
+        for (i, j, odl) in odleglosci_narozne:
+            st.write(f"- {i} ↔ {j}: **{odl:.0f} cm**")
+
+    st.markdown("**Pełna lista odległości (kolejno od słupka 1):**")
+    # Wyświetlamy w kolumnach
+    col_odl = st.columns(3)
+    for idx, (i, j, odl) in enumerate(odleglosci):
+        col = idx % 3
+        with col_odl[col]:
+            st.write(f"{i} → {j}: {odl:.0f} cm")
 
     st.markdown("---")
     st.warning(
@@ -859,7 +914,10 @@ def fundamenty_tab():
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
-    
+
+
+     
+            
 # Na końcu pliku zaktualizuj słownik zakładek (dodaj, jeśli nie ma)
 # zakladki_funkcje["🏛️ Fundamenty"] = fundamenty_tab
 # ========== SŁOWNIK ZAKŁADEK (dodajemy nowe TUTAJ) ==========
