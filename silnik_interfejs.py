@@ -555,9 +555,23 @@ def kosztorys_tab():
 # ---------- FUNKCJE POMOCNICZE ----------
 
 # ---------- FUNKCJE POMOCNICZE ----------
+
+# ---------- FUNKCJE POMOCNICZE ----------
 import math
 import base64
 from fpdf import FPDF
+
+def usun_polskie_znaki(text):
+    """Zamienia polskie znaki na zwykle odpowiedniki (dla PDF)."""
+    replacements = {
+        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+        'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+        'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
+        'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text
 
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
@@ -676,6 +690,9 @@ def rysuj_odleglosci_na_rysunku(svg, punkty, szer_m, dlug_m, skala):
 def create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
                liczba_rzedow, ile_final, obc_final, Ndop_final, zapas_final,
                smuklosc, szansa_wyboczenia, punkty_final):
+    # Usuwamy polskie znaki z kazdego stringa
+    wybrany_grunt = usun_polskie_znaki(wybrany_grunt)
+
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=10)
@@ -743,6 +760,17 @@ def fundamenty_tab():
     st.markdown("---")
     st.subheader("🔍 Rodzaj podłoża")
     grunty = {
+        "Piasek luzny": 100,
+        "Piasek sredniozageszczony": 200,
+        "Piasek zageszczony": 350,
+        "Piasek gliniasty": 150,
+        "Glina plastyczna": 100,
+        "Glina twardoplastyczna": 200,
+        "Zwir zageszczony": 400,
+        "Posadzka skalista": 500,
+    }
+    # Dla interfejsu uzywamy oryginalnych nazw z polskimi znakami
+    grunty_wyswietlane = {
         "Piasek luźny": 100,
         "Piasek średniozagęszczony": 200,
         "Piasek zagęszczony": 350,
@@ -752,8 +780,10 @@ def fundamenty_tab():
         "Żwir zagęszczony": 400,
         "Posadzka skalista": 500,
     }
-    wybrany_grunt = st.selectbox("Wybierz rodzaj gruntu", list(grunty.keys()), key='fundament_grunt')
-    nosnosc_gruntu_kpa = grunty[wybrany_grunt]
+    wybrany_grunt_wyswietlany = st.selectbox("Wybierz rodzaj gruntu", list(grunty_wyswietlane.keys()), key='fundament_grunt')
+    # Do obliczen uzywamy wersji bez polskich znakow
+    wybrany_grunt_ascii = usun_polskie_znaki(wybrany_grunt_wyswietlany)
+    nosnosc_gruntu_kpa = grunty[wybrany_grunt_ascii]
 
     with st.expander("🧪 Jak sprawdzić rodzaj gruntu? (test butelkowy)"):
         st.markdown("""
@@ -966,10 +996,9 @@ def fundamenty_tab():
     svg += '</svg>'
     st.markdown(svg, unsafe_allow_html=True)
 
-    # --- TABELA ODLEGŁOŚCI ---
+    # --- TABELA ODLEGŁOŚCI (w 3 kolumnach markdown) ---
     st.subheader("📋 Odległości pomiędzy słupkami")
 
-    # Odległości między narożnymi
     narozne = [p for p in punkty_final if p['typ'] == 'narozny']
     odleglosci_narozne = []
     for i in range(len(narozne)):
@@ -988,7 +1017,6 @@ def fundamenty_tab():
         for (i, j, odl) in odleglosci_narozne:
             st.write(f"- {i} ↔ {j}: **{odl:.0f} cm**")
 
-    # Pełna lista w 3 kolumnach
     st.markdown("**Pełna lista odległości (kolejno od słupka 1):**")
     odleglosci_sasiednie = []
     for i in range(len(punkty_final) - 1):
@@ -999,11 +1027,11 @@ def fundamenty_tab():
             odleglosci_sasiednie.append((i+1, i+2, odl))
 
     if odleglosci_sasiednie:
-        cols_odl = st.columns(3)
-        for idx, (i, j, odl) in enumerate(odleglosci_sasiednie):
-            col = idx % 3
-            with cols_odl[col]:
-                st.write(f"{i} → {j}: {odl:.0f} cm")
+        # Budujemy tabelę markdown
+        md_table = "| Start | Koniec | Odległość |\n|-------|--------|------------|\n"
+        for i, j, odl in odleglosci_sasiednie:
+            md_table += f"| {i} | {j} | {odl:.0f} cm |\n"
+        st.markdown(md_table)
     else:
         st.write("*Brak odległości do wyświetlenia.*")
 
@@ -1011,7 +1039,7 @@ def fundamenty_tab():
     st.markdown("---")
     if st.button("📄 Eksportuj raport do PDF"):
         try:
-            pdf_bytes = create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
+            pdf_bytes = create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, rozstaw_cm,
                                   liczba_rzedow, ile_final, obc_final, Ndop_final, zapas_final,
                                   sm_final, wyb_final, punkty_final)
             b64 = base64.b64encode(pdf_bytes).decode()
@@ -1026,6 +1054,11 @@ def fundamenty_tab():
         "z uprawnionym konstruktorem lub architektem. Ostateczną decyzję o liczbie, średnicy i głębokości słupków "
         "należy powierzyć specjaliście posiadającemu odpowiednie uprawnienia budowlane."
     )
+
+
+    
+    
+    
     
      
             
