@@ -551,10 +551,6 @@ def kosztorys_tab():
 # ---------- NOWA FUNKCJA POMOCNICZA ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
 # ---------- FUNKCJE POMOCNICZE DO FUNDAMENTÓW ----------
-import math
-import base64
-from fpdf import FPDF
-import os
 
 def generuj_slupki_obwodowe(szer_m, dlug_m, rozstaw_cm):
     def slupki_na_boku(dlugosc_m, rozstaw_cm):
