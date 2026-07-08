@@ -756,8 +756,8 @@ def create_pdf(szer_m, dlug_m, wybrany_grunt_ascii, glebokosc_cm, srednica_mm, r
 
     # Klauzula prawna
     pdf.set_font("Arial", 'I', 8)
-    pdf.multi_cell(0, 5, txt="Uwaga prawna: Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). Wyniki maja charakter orientacyjny i nie stanowia podstawy do wykonania fundamentow bez konsultacji z uprawnionym konstruktorem lub architektem. Ostateczna decyzje o liczbie, srednicy i glebokosci slupkow nalezy powierzyc specjaliście posiadajacemu odpowiednie uprawnienia budowlane.")
-
+    klauzula = "Uwaga prawna: Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). Wyniki maja charakter orientacyjny i nie stanowia podstawy do wykonania fundamentow bez konsultacji z uprawnionym konstruktorem lub architektem. Ostateczna decyzje o liczbie, srednicy i glebokosci slupkow nalezy powierzyc specjaliście posiadajacemu odpowiednie uprawnienia budowlane."
+pdf.multi_cell(0, 5, txt=usun_polskie_znaki(klauzula))
     return pdf.output(dest='S').encode('latin-1')
 
 
