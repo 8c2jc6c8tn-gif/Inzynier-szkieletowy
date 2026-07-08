@@ -1013,18 +1013,14 @@ def fundamenty_tab():
     st.markdown("---")
     if st.button("📄 Eksportuj raport do PDF"):
         try:
-            pdf_path = create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
+            pdf_bytes = create_pdf(szer_m, dlug_m, wybrany_grunt, glebokosc_cm, srednica_mm, rozstaw_cm,
                                   liczba_rzedow, wybor, ile_final, obc_final, Ndop_final, zapas_final,
                                   sm_final, wyb_final, punkty_final)
-            with open(pdf_path, "rb") as f:
-                pdf_bytes = f.read()
             b64 = base64.b64encode(pdf_bytes).decode()
             href = f'<a href="data:application/octet-stream;base64,{b64}" download="raport_fundamenty.pdf">Pobierz raport PDF</a>'
             st.markdown(href, unsafe_allow_html=True)
-            os.remove(pdf_path)
         except Exception as e:
             st.error(f"Nie udało się wygenerować PDF: {e}")
-
     st.warning(
         "⚠️ **Uwaga prawna:** Obliczenia wykonano zgodnie z uproszczonymi zasadami Eurokodu 7 (PN-EN 1997). "
         "Wyniki mają charakter orientacyjny i **nie stanowią podstawy do wykonania fundamentów** bez konsultacji "
